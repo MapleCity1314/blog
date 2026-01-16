@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
@@ -18,82 +18,79 @@ export default function Loading() {
 
   return (
     <div className="fixed inset-0 z-9999 bg-background flex flex-col items-center justify-center overflow-hidden">
-      
-      {/* 背景微弱网格 */}
+      {/* Subtle grid background */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-size-[2rem_2rem]" />
 
       <div className="relative z-10 flex flex-col items-center gap-8">
-        
-        {/* 1. 幽灵核心 */}
+        {/* 1. Ghost core */}
         <div className="relative">
-            {/* 外部旋转的光环：模拟数据加载 */}
-            <motion.div 
-                className="absolute -inset-8 rounded-full border border-dashed border-primary/20"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-            />
-            <motion.div 
-                className="absolute -inset-4 rounded-full border border-primary/40 border-t-transparent"
-                animate={{ rotate: -360 }}
-                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            />
-            
-            {/* 幽灵本体（呼吸效果） */}
-            <motion.div 
-                animate={{ opacity: [0.5, 1, 0.5], scale: [0.95, 1.05, 0.95] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="opacity-80 scale-75"
-            >
-                {frames.length > 0 && (
-                  <FrameSequencePlayer
-                    frames={frames}
-                    config={{
-                      scaleX: 1.15,
-                      scaleY: 0.9,
-                      fps: 40,
-                    }}
-                  />
-                )}
-            </motion.div>
+          {/* Rotating rings to simulate loading */}
+          <motion.div
+            className="absolute -inset-8 rounded-full border border-dashed border-primary/20"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+          />
+          <motion.div
+            className="absolute -inset-4 rounded-full border border-primary/40 border-t-transparent"
+            animate={{ rotate: -360 }}
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+          />
+
+          {/* Ghost body with breathing effect */}
+          <motion.div
+            animate={{ opacity: [0.5, 1, 0.5], scale: [0.9, 1, 0.9] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="opacity-80 scale-[0.3]"
+          >
+            {frames.length > 0 && (
+              <FrameSequencePlayer
+                frames={frames}
+                config={{
+                  scaleX: 1.15,
+                  scaleY: 0.9,
+                  fps: 40,
+                }}
+              />
+            )}
+          </motion.div>
         </div>
 
-        {/* 2. 文本状态机 */}
+        {/* 2. Status copy */}
         <div className="text-center space-y-2">
-            <h2 className="text-lg font-logo animate-pulse">
-                Synthesizing Interface<span className="text-primary">...</span>
-            </h2>
-            
-            {/* 模拟代码加载行 */}
-            <div className="h-4 overflow-hidden flex flex-col items-center">
-                 <motion.div 
-                    animate={{ y: ["0%", "-100%"] }}
-                    transition={{ 
-                      duration: 2, 
-                      repeat: Infinity, 
-                      ease: "linear",
-                      times: [0, 0.25, 0.5, 0.75, 1]
-                    }}
-                    className="flex flex-col text-[10px] font-mono text-muted-foreground/60"
-                 >
-                    <span>LOADING_ASSETS_0x1A...</span>
-                    <span>ESTABLISHING_UPLINK...</span>
-                    <span>PARSING_GHOST_DATA...</span>
-                    <span>RENDERING_PIXELS...</span>
-                    <span>LOADING_ASSETS_0x1A...</span>
-                 </motion.div>
-            </div>
+          <h2 className="text-lg font-logo animate-pulse">
+            Synthesizing Interface<span className="text-primary">...</span>
+          </h2>
+
+          {/* Simulated log lines */}
+          <div className="h-4 overflow-hidden flex flex-col items-center">
+            <motion.div
+              animate={{ y: ["0%", "-100%"] }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "linear",
+                times: [0, 0.25, 0.5, 0.75, 1],
+              }}
+              className="flex flex-col text-[10px] font-mono text-muted-foreground/60"
+            >
+              <span>LOADING_ASSETS_0x1A...</span>
+              <span>ESTABLISHING_UPLINK...</span>
+              <span>PARSING_GHOST_DATA...</span>
+              <span>RENDERING_PIXELS...</span>
+              <span>LOADING_ASSETS_0x1A...</span>
+            </motion.div>
+          </div>
         </div>
 
-        {/* 3. 极简进度条 */}
+        {/* 3. Minimal progress bar */}
         <div className="w-48 h-px bg-border relative overflow-hidden">
-            <motion.div 
-                className="absolute inset-0 bg-primary"
-                initial={{ x: "-100%" }}
-                animate={{ x: "100%" }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-            />
+          <motion.div
+            className="absolute inset-0 bg-primary"
+            initial={{ x: "-100%" }}
+            animate={{ x: "100%" }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          />
         </div>
-
       </div>
     </div>
   );
