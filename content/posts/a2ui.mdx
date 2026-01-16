@@ -1,0 +1,129 @@
+---
+title: "A2UI: The Future of AI-Driven UI"
+date: "2026-01-16"
+description: "A2UI: The Future of AI-Driven UI"
+tags: ["Design", "AI", "UI", "A2UI"]
+published: true
+---
+
+为什么需要 A2UI ？
+
+问题：传统的AI应用中，AI只能通过对话时的方式进行和用户进行交互，交互效率低下，如
+```markdown
+User: "帮我订个位，两个人，明晚 7 点。"
+Agent: "好的，请问您想去哪家餐厅？"
+User: "就楼下那家意大利面。"
+Agent: "好的，正在为您查询... 抱歉，那家店明晚 7 点没位子了，7 点半可以吗？"
+User: "行吧。"
+Agent: "好的，请确认您的联系方式..."
+...
+```
+而在GUI应用程序中，你只需要点击几下按钮就可以：选择日期，滚一下时间槽,就可以了
+
+所以这种完全依赖文本的交互（Text-based Interaction）虽然通用，但在处理复杂参数输入或展示结构化信息时，效率极其低下。
+
+**ask: 为什么我们不能直接生成界面？**
+
+既然文本低效，为什么不让 LLM 直接生成界面？
+
+在 A2UI 出现之前，我们通常面临两个极端：
+
+直接生成代码（HTML/JS）： 让 AI 输出前端代码并在客户端 eval 或 dangerouslySetInnerHTML。这无异于给 XSS 攻击敞开大门，且样式难以统一。
+
+硬编码 UI（Function Calling）： 开发者预先写死几个 UI 组件，通过 AI 触发特定函数来调用。这种方式安全，但极其死板，无法应对 AI 动态生成的复杂意图。
+
+---
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as 📱 Client UI (Runtime)
+    participant Client as ⚙️ Client Engine
+    participant Server as 🧠 AI Agent (Server)
+
+    User->>UI: "帮我订个位..."
+    UI->>Server: 发送 Prompt
+    
+    Note over Server,Client: 1. 建立 SSE 连接 (Stream)
+    Server-->>Client: SSE Open
+
+    rect rgb(240, 248, 255)
+        Note right of Client: 2. 渐进式解析 (Parsing)<br/>就像浏览器解析 HTML 流一样
+        
+        loop Streaming Response
+            Server-->>Client: chunk: surface LoadingSkeleton
+            Client->>UI: 渲染骨架屏 (避免白屏)
+            
+            Server-->>Client: chunk: component RestaurantList id list_1
+            Client->>UI: 渲染列表容器
+            
+            Server-->>Client: chunk: target list_1 data PizzaHut
+            Client->>UI: 填充列表数据
+        end
+    end
+
+    Note over UI: ✨ 界面渲染完成，等待交互
+
+    Note over User, Server: 3. 闭环交互 (The Loop)
+    
+    User->>UI: 点击 "预订" 按钮
+    UI->>Client: 捕获 userAction (Client Side)
+    Note right of UI: 客户端处理简单逻辑<br/>(如表单校验/UI变色)
+    
+    Client->>Server: 发送 Action Payload (Function Call)
+    Note right of Server: AI 思考并决定下一步<br/>(调用 API 下单)
+    
+    Server-->>Client: stream update: type toast msg 预订成功
+    Client->>UI: 展示成功提示
+```
+---
+
+
+---
+
+```mermaid
+sequenceDiagram
+    participant Server
+    participant Client
+    participant UI
+
+    Note over Server,Client: 1. 建立 SSE 连接（JSONL Stream）
+
+    Server->>Client: SSE 连接建立
+
+    loop 2. Client Buffering
+        Server-->>Client: surfaceUpdate
+        Server-->>Client: dataModelUpdate
+        Note right of Client: 客户端解析并缓存<br/>组件结构和数据模型
+    end
+
+    Note over Server,Client: 3. 服务器发送 beginRendering 信号
+
+    Server->>Client: beginRendering
+
+    Note right of Client: 4. Client-Side Rendering<br/>构建 Widget Tree<br/>解析数据绑定<br/>从 Widget Registry 实例化组件
+
+    Client->>UI: 渲染 UI
+
+    Note over UI: （UI 可交互）
+
+    Note over UI,Client: 5. 用户交互
+
+    UI->>Client: userAction
+
+    Note over Client,Server: 6. Event Handling
+
+    Client->>Server: userAction (A2A 消息)
+
+    Note over Server: 处理事件
+
+    loop 7-9. Dynamic Updates
+        Server-->>Client: surfaceUpdate
+        Server-->>Client: dataModelUpdate
+        Client->>UI: 触发 UI 重建
+    end
+
+```
+
+（未完成）
+

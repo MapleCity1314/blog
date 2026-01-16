@@ -1,0 +1,71 @@
+---
+title: "Solana Validator"
+date: "2026-01-15"
+description: "Solana Validator"
+tags: ["Solana", "Validator", "Blockstore", "TVU", "web3"]
+published: true
+---
+
+验证器广泛使用 CPU 设计中常见的一种优化技术，即流水线。当输入数据流需要通过一系列步骤进行处理，并且每个步骤由不同的硬件负责时，流水线是完成这项工作的正确工具。典型的例子是使用洗衣机和烘干机来洗涤/烘干/折叠几堆衣物。洗涤必须在烘干之前进行，烘干必须在折叠之前进行，但这三个操作中的每一个都由单独的单元执行。为了最大限度地提高效率，人们创建了一个阶段流水线。我们将洗衣机称为一个阶段，烘干机称为另一个阶段，折叠过程称为第三个阶段。要运行该流水线，人们在将第一批衣物放入烘干机后立即将第二批衣物放入洗衣机。同样，在第二批衣物放入烘干机并且第一批衣物折叠完毕后，将第三批衣物放入洗衣机。通过这种方式，人们可以同时洗涤三批衣物。在负载无限的情况下，流水线将始终以流水线中最慢阶段的速率完成负载。
+
+## Solana中的流水线
+
+Solana Validator包含两个流水线进程， 其一名为 **TPU（Transaction Processing Unit）** ，用于作为领导模式；其二名为 **TVU（Transaction Validation Unit）**，用于验证器模式。两种情况下流水线的硬件相同，网络输入、GPU 卡、CPU 核心、磁盘写入以及网络输出。它们对硬件的处理方式不同。TPU 用于创建账本条目，而 TVU 用于验证账本条目。
+
+![80363557f6db629b18ab5ed242fee0e5.png](http://icstudio.top/static/img/f2d6e571ae756b8bdfb3548318ca93d2.80363557f6db629b18ab5ed242fee0e5.webp)
+
+### TPU
+
+当一个验证器成为 Leader，它需要负责处理用户提交的交易并打包成区块，这一过程由 TPU 完成。
+
+
+![53959c2777d46c540e5886c4961d5037.png](http://icstudio.top/static/img/d182f4045f9b981bf0a7453b792b6db9.53959c2777d46c540e5886c4961d5037.webp)
+
+交易被编码并以 QUIC 流的形式从客户端（网络的其他验证器/用户）发送到验证器，如下所示
+
+- 客户端提交交易（通过 QUIC 协议，带有 pps 限制）。
+- Fetch Stage：收集交易数据包。
+- SigVerify Stage：验证交易签名，并进行去重。
+- Banking Stage：执行交易逻辑，结合 PoH 生成有序的交易记录。
+- Broadcast Stage：将打包好的区块分片（shreds）广播到下游验证器。
+
+### Blockstore
+
+Blockstore 是 Solana 验证器（Validator）内部一个非常关键的组件，用来存储和管理分片（shreds）以及在分叉（fork）状态下对账本状态的维护。<br />
+在区块被“最终确定”（finalized）之前，会有多个可能的分叉（forks）并存，因为 Leader 的轮换（leader rotation）可能导致某些 slot 没有被打满或者出现多个区块分支。Blockstore 是用来处理这些未最终确定状态期间的所有可能性 —— 即使顺序不同或者分叉，也要能存储、回放、且最终收敛
+
+**shred 与 Blockstore 的基本规则?**
+
+Shred 是 Solana 的数据单位，是 Leader 在打包期间将区块数据切割的分片。每个 shred 带有 slot 信息、shred index。Blockstore 可以接受 任何顺序 的 shred（只要是合法 Leader 签名的）。 <br />
+Shreds 存储的 key 是 leader slot + shred index，value 是实际的数据。这个 slot-relative shred index 是每个 slot 内独立编号的。 
+
+<hr />
+
+Blockstore的功能如下：
+| 功能                            | 作用                                                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **持久化（Persistence）**          | 一旦 shred 被接收并验证签名，就立即存储（persistent），不需要等待 slot 完成。这样保证不会因为网络顺序问题丢数据。                                                                   |
+| **修复 / Repair**               | 如果某些 shreds 没有到达（或丢失），Blockstore 能够为这些请求提供重传（repair）。最近的 shreds 从内存或刚写入的文件里找，老的 shreds 则可能需要读深层存储。                                     |
+| **支持分叉（Forks）**               | 由于 leader 更换和 slot 可能并不按顺序埋满，会产生分叉。Blockstore 支持“随机访问 shreds”（random access），使验证器可以回滚（rollback）到某 Bank checkpoint，然后从那个点重演（replay）可能的链。  |
+| **重启 / 重播（Restart / Replay）** | 在节点重启或从 clean state 恢复时，可以从 slot 0 开始按顺序枚举 entries（通过 shreds 重建 entries），然后重演：特别是最近未 final 的部分，还是需要处理分叉情况。                             |
+
+[1]: https://docs.anza.xyz/validator/blockstore "Blockstore in a Solana Validator | Agave"
+
+### TVU
+
+TVU（交易验证单元）是验证器的逻辑单元，负责在验证器之间传播区块，并确保这些区块的交易到达重放阶段。其主要的外部接口是Turbo协议。
+
+![fa4275f98e4da4722439d62133acb0bd.png](http://icstudio.top/static/img/e69a2fae23f965d60b0cc9c25e476f92.fa4275f98e4da4722439d62133acb0bd.webp)
+
+#### 重传机制
+
+
+![7e3588b9e3e1ba780c2dc46f17b09a0f.png](http://icstudio.top/static/img/016ff33c7129b90a25c8415ef50f08dd.7e3588b9e3e1ba780c2dc46f17b09a0f.webp)
+
+在复杂的网络环境中，部分分片可能会丢失或损坏。Solana 通过 重传机制 保证数据完整性：
+
+- ShredFilter：过滤无效/重复分片。
+- Blockstore：存储分片，供后续 Replay 使用。
+- Repair Service：若分片缺失，会主动向其他节点请求补齐。
+- Retransmitter：负责将分片再次扩散，保证全网同步。
+- Deshredder：将分片重新组装成完整交易记录。

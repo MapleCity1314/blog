@@ -1,0 +1,30 @@
+.root {
+  display: inline-block;
+  color: currentColor;
+}
+
+.frame {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  font-family: "Courier New", Courier, "Liberation Mono", Menlo, Consolas,
+    monospace;
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: 0;
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "kern" 0, "calt" 0;
+  text-rendering: geometricPrecision;
+  transform-origin: center;
+}
+
+.frame :global(.b) {
+  font: inherit;
+  color: transparent;
+  -webkit-text-stroke: var(--frame-stroke, 1px)
+    var(--frame-outline, #3b82f6);
+  text-shadow: 0 0 8px var(--frame-glow, rgba(59, 130, 246, 0.6));
+}

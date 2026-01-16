@@ -1,0 +1,152 @@
+---
+title: "Next.js 16 Cache Component & IO"
+date: "2026-01-15"
+description: "Next.js 16 Cache Component & IO"
+tags: ["Next.js", "Cache Component", "IO"]
+published: true
+---
+
+Next.js 16 将 15 canary版本中的缓存组件实现到了稳定组件的程度上，并且对预渲染提出了更为标准，遵守React模型规范的函数和编写方法
+
+当我们判断一个组件是否能被预渲染，或者说是否能被框架缓存，应该看他是否存在IO：
+> 这里IO也就是说的，不能在构建时确定，不具备有纯函数属性<br />必须在“请求时”才能得到的值
+> 换句话说：
+
+凡是一个组件的返回结果取决于“外界”(外部系统、时间、随机数、用户、请求上下文…) 而不是代码本身，那么它就是 IO。
+这种 IO 会导致：
+无法静态预渲染（SSG）
+只能运行时渲染（SSR）
+或必须通过缓存策略（PPR、RSC Cache）隔离到 `Suspense` 里
+
+```tsx
+// RSC
+const getData = () => 5;
+
+export default function Home() {
+    const value = getData()
+    ...
+}
+```
+
+这是一个IO吗？这不是一个IO，它是可以被**预渲染**的
+
+```tsx
+// RSC
+const getData = () => 5;
+
+export default function Home() {
+    const value = getData()
+    
+    return (
+        <>
+          {/* value不是IO */}
+          <div>{value}</div>
+
+          <Suspense>
+            {/* IO的部分被隔离了 */}
+            <CurrentTime />
+          </Suspense>
+        </>
+    )
+}
+```
+
+虽然上面的 getData 不是 IO，但是一旦我们在组件里塞了一个“只有运行时才能知道”的东西，情况就完全变了。
+比如这个：
+```tsx
+const getCurrentTime = async () => {
+  return Date.now();
+}
+```
+
+`Date.now()` 
+就是一个标准的IO，因为你不可能在构建阶段就知道现在是什么时间
+所以只要你的组件里有这种东西，整个组件就会被 Next.js 认定为 “运行时组件”，无法预渲染。
+
+这就是为什么我们必须把 IO 抽出去，放在 `<Suspense>` 下面的原因。否则本来可以预渲染的那部分页面会被一个小小的时间戳“污染”，导致整个页面都得在运行时渲染。
+我们需要把阻挠预渲染的组件抽出来，然后隔离出去<br />
+解决方案： cache component
+    
+```tsx
+const CurrentTime = async () => {
+  "use cache"; // 声明这是一个IO，但可以缓存
+    
+  cacheTag("current-time");  
+  cacheLife("hours"); // 缓存一个小时
+    
+  const currentTime = await getCurrentTime()
+    
+  return <div>{currentTime}</div>
+}
+ 
+```
+    
+"use cache"：我知道这是 IO，但是别担心，我允许你帮我缓存。
+cacheTag 则相当于给这个缓存打一标签，以后可以通过 revalidateTag、updateTag 来刷新它。
+cacheLife 则是缓存策略，比如我定义成小时级别，那在这段时间内就不会重复执行 IO。
+
+接下来在server action中：
+```tsx
+<form action={async () => {
+  "use server"
+
+  revalidateTag("current-time")
+  updateTag("current-time")
+}}>
+  <button>更新时间</button>
+</form>
+```
+revalidateTag("current-time") 的语义其实很简单，它做的事情不是“立即刷新缓存”，而是：<br />
+把这个缓存标记成过期（stale），但不马上去计算新的内容。真正的刷新会由“第一个访问并触发缓存未命中（cache miss）的人”来完成。<br />
+这其实就是一种 “Stale-While-Revalidate” 的策略：<br />
+先把缓存标记成旧的，但不立刻费力气去重算，让用户访问时顺便触发。<br />
+这种机制特别适合大规模更新场景，比如
+黑五所有产品都要半价
+我有一百万个商品页面
+我不可能一口气把这一百万个页面全部重新生成 HTML
+但我可以 在几毫秒内把它们全部标记成 stale
+后面哪个商品被用户访问了，就顺便重新生成哪个
+这样既不会阻塞系统，也能保证最终一致性。<br />
+而 updateTag("current-time") 则是另外一种风格：
+我不想等，我现在就要把这个缓存重新算一遍。
+不管有没有人访问，不管缓存是不是马上要用，我就是要立即刷新。<br />
+它的语义比 revalidateTag 更“硬”，因为它真的会触发一次重新计算。如果你的数据量特别大，这种操作非常要命，可能会在短时间内引发大量计算压力（不过小场景下没啥问题）。
+
+因为检测一个东西是否是 IO 非常复杂，所以 Next.js 做了个折中：
+只要你把函数写成 async，它就会认为你里面可能存在 IO。
+一个 async 组件也就自然地被当成 “运行时组件”，不会参与完全的预渲染。
+这就是为什么明明 Date.now() 是同步的，但我们还是建议：
+    
+```tsx
+const getCurrentTime = async () => Date.now()
+```
+    
+因为你把它写成 async，Next.js 才会帮你进行正确的策略处理（否则可能直接被静态化了，这肯定不符合你的预期）。
+    
+另外一个注释点也挺重要：
+小部分情况：没有 async，但是是 IO
+比如 Math.random()、Date.now()
+Next.js 没办法完美检测这种同步 IO，所以最好你自己主动标注。
+换句话说：  
+只依赖 async 来判断 IO 并不完美
+遇到这种非确定性的同步行为（如时间、随机数、cookie），你最好自己明确告诉框架：
+    
+用 "use cache"
+或者写成 async
+或者隔离进 `Suspense`
+确保它不会污染整个页面导致不必要的运行时渲染。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
