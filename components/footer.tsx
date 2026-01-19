@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUp, Github, Twitter, Mail, Command } from "lucide-react";
@@ -16,6 +16,16 @@ const footerLinks = [
   { label: "Friends", href: "/friends" },
   { label: "About", href: "/about" },
 ];
+
+const SITE_START_AT = new Date("2025-01-01T23:20:13+08:00");
+
+const formatUptime = (startAt: Date) => {
+  const diffMs = Math.max(0, Date.now() - startAt.getTime());
+  const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  return `${days}天${hours}小时`;
+};
 
 /**
  * === 3D 流体光带 (修复版) ===
@@ -87,11 +97,23 @@ const FluidStrip = () => {
 };
 
 export default function Footer() {
+  const [uptime, setUptime] = useState("计算中…");
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const currentYear = new Date().getFullYear();
+
+  useEffect(() => {
+    const updateUptime = () => {
+      setUptime(formatUptime(SITE_START_AT));
+    };
+
+    updateUptime();
+    const timer = setInterval(updateUptime, 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     // Footer 容器
@@ -185,6 +207,7 @@ export default function Footer() {
           
           <div className="flex flex-col md:flex-row items-center gap-2 md:gap-6">
             <span>&copy; {currentYear} Presto. All rights reserved.</span>
+            <span>本站居然已经运行了{uptime}</span>
             
             <a 
                 href="https://beian.miit.gov.cn/" 
