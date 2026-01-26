@@ -1,0 +1,278 @@
+﻿---
+title: "任务 A 实现说明：Trade Decoder"
+date: "2026-01-26"
+description: "任务 A 的实现流程、关键逻辑与输入输出说明。"
+tags: ["Blog"]
+published: true
+---
+
+
+# 任务 A 实现说明：Trade Decoder
+
+本文件解释项目中任务 A（交易日志解码器）的实际实现，依据现有代码 `src/trade_decoder.py` 进行说明，侧重实现流程与关键逻辑。
+
+## 目标与输入输出
+
+- 目标：给定 Polygon 链上的交易哈希，解析交易回执中的 `OrderFilled` 日志，输出规范化的交易记录。
+- 输入：`--tx-hash <hash>`，可选 `--output <path>`。
+- 输出：JSON 列表，每条包含 `tx_hash`、`log_index`、`exchange`、`maker`、`taker`、`maker_asset_id`、`taker_asset_id`、`maker_amount`、`taker_amount`、`price`、`token_id`、`side`。
+
+## 实现流程
+
+1. 连接 RPC 并拉取回执
+   - 入口函数 `decode_trades(tx_hash)` 使用 `Web3.HTTPProvider(get_rpc_url())` 连接 RPC。
+   - 调用 `w3.eth.get_transaction_receipt(tx_hash)` 获取交易日志列表。
+2. 过滤 Polymarket 交易合约
+   - `EXCHANGE_ADDRESSES` 预置了 CTF Exchange 与 NegRisk_CTFExchange 两个合约地址（小写）。
+   - 遍历 `receipt["logs"]` 时，仅处理 `log["address"]` 在该集合内的日志。
+3. 解析 OrderFilled 事件
+   - `_decode_order_filled` 支持多个事件签名（`ORDER_FILLED_SIGNATURES`），兼容不同 ABI 版本。
+   - 同时处理三种常见形态：
+     - `topics` 长度 4：`order_hash`/`maker`/`taker` 在 topic，金额在 data 中。
+     - `topics` 长度 3：`maker`/`taker` 在 topic，`order_hash` 可能在 data 中。
+     - 其他：完整参数都在 data 中（8 个字段）。
+   - 所有金额与资产 ID 以 `int` 形式存储，地址统一转为 checksum。
+4. 过滤 taker 汇总日志
+   - `decode_trades` 中对 `taker == exchange` 的日志直接跳过，避免 maker 与 taker 汇总重复计数。
+5. 计算成交方向与价格
+   - `_calculate_trade_fields` 根据 `maker_asset_id` 是否为 0 判断买卖方向：
+     - `maker_asset_id == 0`：maker 出 USDC ⇒ `side = BUY`，`price = maker_amount / taker_amount`。
+     - 否则：maker 出 Token ⇒ `side = SELL`，`price = taker_amount / maker_amount`。
+   - 使用 `Decimal` 并通过 `decimal_to_str` 转为字符串，避免精度丢失。
+6. 组装输出
+   - `Trade` 数据类保证字段齐全。
+   - 输出 JSON 时由 `print_json` 或 `write_json` 负责格式化。
+
+## 关键细节与边界
+
+- 事件签名兼容：`ORDER_FILLED_SIGNATURES` 同时包含两种 `OrderFilled` 签名，避免链上 ABI 差异导致解析失败。
+- topic 与 data 混合解析：通过 `topics` 长度与 `data` 字节数判断哪一种 ABI 结构。
+- 重复计数处理：过滤 `taker == exchange` 的汇总日志，避免双计。
+- 精度处理：采用 `Decimal` 和统一输出字符串，减少浮点误差。
+
+## 关联文件
+
+- `src/trade_decoder.py`：核心解码逻辑。
+- `src/utils.py`：`decimal_to_str`、`write_json`、`print_json`。
+- `src/config.py`：RPC 配置读取。
+
+
+## Source Code (verbatim)
+
+```python
+from __future__ import annotations
+
+import argparse
+import json
+from dataclasses import asdict, dataclass
+from decimal import Decimal
+from typing import Any, Dict, Iterable, List, Optional
+
+from eth_abi import decode
+from hexbytes import HexBytes
+from web3 import Web3
+
+from src.config import get_rpc_url
+from src.utils import decimal_to_str, normalize_address, print_json, write_json
+
+
+EXCHANGE_ADDRESSES = {
+    "0x4bFb41d5B3570DeFd03C39a9A4D8dE6Bd8B8982E".lower(),
+    "0xC5d563A36AE78145C45a50134d48A1215220f80a".lower(),
+}
+
+ORDER_FILLED_SIGNATURES = {
+    Web3.keccak(text="OrderFilled(bytes32,address,address,uint256,uint256,uint256,uint256,uint256)").hex(),
+    Web3.keccak(text="OrderFilled(address,address,uint256,uint256,uint256,uint256,uint256)").hex(),
+}
+
+
+@dataclass(frozen=True)
+class Trade:
+    tx_hash: str
+    log_index: int
+    exchange: str
+    maker: str
+    taker: str
+    maker_asset_id: str
+    taker_asset_id: str
+    maker_amount: str
+    taker_amount: str
+    price: str
+    token_id: str
+    side: str
+
+
+@dataclass(frozen=True)
+class _OrderFilledDecoded:
+    order_hash: Optional[str]
+    maker: str
+    taker: str
+    maker_asset_id: int
+    taker_asset_id: int
+    maker_amount: int
+    taker_amount: int
+    fee: int
+
+
+def _topic_to_address(topic: str) -> str:
+    if topic.startswith("0x"):
+        topic = topic[2:]
+    return "0x" + topic[-40:]
+
+
+def _as_hex(value: Any) -> str:
+    if isinstance(value, HexBytes):
+        return value.hex()
+    return str(value)
+
+
+def _decode_order_filled(log: Dict[str, Any]) -> Optional[_OrderFilledDecoded]:
+    topics = [_as_hex(topic) for topic in log.get("topics", [])]
+    if not topics:
+        return None
+
+    signature = topics[0]
+    if signature not in ORDER_FILLED_SIGNATURES:
+        return None
+
+    data_hex = log.get("data", "0x")
+    if isinstance(data_hex, (bytes, bytearray, HexBytes)):
+        data_bytes = bytes(data_hex)
+    else:
+        data_bytes = bytes.fromhex(data_hex[2:]) if data_hex.startswith("0x") else bytes.fromhex(data_hex)
+
+    order_hash = None
+    maker = None
+    taker = None
+    values: Iterable[Any]
+
+    if len(topics) == 4:
+        order_hash = topics[1]
+        maker = _topic_to_address(topics[2])
+        taker = _topic_to_address(topics[3])
+        values = decode(["uint256", "uint256", "uint256", "uint256", "uint256"], data_bytes)
+    elif len(topics) == 3:
+        maker = _topic_to_address(topics[1])
+        taker = _topic_to_address(topics[2])
+        if len(data_bytes) == 32 * 6:
+            decoded = decode(["bytes32", "uint256", "uint256", "uint256", "uint256", "uint256"], data_bytes)
+            order_hash = "0x" + decoded[0].hex()
+            values = decoded[1:]
+        else:
+            values = decode(["uint256", "uint256", "uint256", "uint256", "uint256"], data_bytes)
+    else:
+        if len(data_bytes) == 32 * 8:
+            decoded = decode(
+                [
+                    "bytes32",
+                    "address",
+                    "address",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                    "uint256",
+                ],
+                data_bytes,
+            )
+            order_hash = "0x" + decoded[0].hex()
+            maker = decoded[1]
+            taker = decoded[2]
+            values = decoded[3:]
+        else:
+            return None
+
+    maker_asset_id, taker_asset_id, maker_amount, taker_amount, fee = values
+    return _OrderFilledDecoded(
+        order_hash=order_hash,
+        maker=Web3.to_checksum_address(maker),
+        taker=Web3.to_checksum_address(taker),
+        maker_asset_id=int(maker_asset_id),
+        taker_asset_id=int(taker_asset_id),
+        maker_amount=int(maker_amount),
+        taker_amount=int(taker_amount),
+        fee=int(fee),
+    )
+
+
+def _calculate_trade_fields(decoded: _OrderFilledDecoded) -> Dict[str, str]:
+    maker_asset_id = decoded.maker_asset_id
+    taker_asset_id = decoded.taker_asset_id
+    maker_amount = Decimal(decoded.maker_amount)
+    taker_amount = Decimal(decoded.taker_amount)
+
+    if maker_asset_id == 0:
+        price = maker_amount / taker_amount
+        token_id = str(taker_asset_id)
+        side = "BUY"
+    else:
+        price = taker_amount / maker_amount
+        token_id = str(maker_asset_id)
+        side = "SELL"
+
+    return {
+        "price": decimal_to_str(price),
+        "token_id": token_id,
+        "side": side,
+    }
+
+
+def decode_trades(tx_hash: str) -> List[Trade]:
+    w3 = Web3(Web3.HTTPProvider(get_rpc_url()))
+    receipt = w3.eth.get_transaction_receipt(tx_hash)
+
+    trades: List[Trade] = []
+    for log in receipt["logs"]:
+        exchange = normalize_address(log["address"])
+        if exchange not in EXCHANGE_ADDRESSES:
+            continue
+
+        decoded = _decode_order_filled(log)
+        if not decoded:
+            continue
+
+        if normalize_address(decoded.taker) == exchange:
+            continue
+
+        computed = _calculate_trade_fields(decoded)
+        trade = Trade(
+            tx_hash=tx_hash,
+            log_index=int(log["logIndex"]),
+            exchange=Web3.to_checksum_address(exchange),
+            maker=decoded.maker,
+            taker=decoded.taker,
+            maker_asset_id=str(decoded.maker_asset_id),
+            taker_asset_id=str(decoded.taker_asset_id),
+            maker_amount=str(decoded.maker_amount),
+            taker_amount=str(decoded.taker_amount),
+            price=computed["price"],
+            token_id=computed["token_id"],
+            side=computed["side"],
+        )
+        trades.append(trade)
+
+    return trades
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Decode Polymarket OrderFilled logs from a tx hash.")
+    parser.add_argument("--tx-hash", required=True, help="Transaction hash on Polygon")
+    parser.add_argument("--output", help="Write JSON output to a file")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = _parse_args()
+    trades = decode_trades(args.tx_hash)
+    payload = [asdict(trade) for trade in trades]
+
+    if args.output:
+        write_json(args.output, payload)
+    else:
+        print_json(payload)
+
+
+if __name__ == "__main__":
+    main()
+```

@@ -23,6 +23,7 @@ skills\*
 
 # production
 /build
+/public/search-index.json
 
 # misc
 .DS_Store
