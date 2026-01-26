@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { addFriend, consumeAccessToken, getFriends, verifyAccessToken } from "@/lib/friends/store";
 import type { FriendInput } from "@/lib/friends/types";
-
-export const dynamic = "force-dynamic";
+import { checkRateLimit } from "@/lib/security";
 
 export async function GET() {
   const friends = await getFriends();
@@ -11,6 +10,20 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    // 为创建友链增加简单限流，防止短时间重复提交
+    const clientIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    const rateKey = `friends-post:${clientIp}`;
+    const allowed = await checkRateLimit(rateKey, 10, 1000 * 60 * 60); // 1 小时内最多 10 次
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many submissions. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const payload = (await request.json()) as FriendInput & { accessToken?: string };
     const accessToken = payload.accessToken?.trim() || "";
     if (!accessToken) {

@@ -8,10 +8,10 @@ import HeroSection from "./hero-section";
 import PostsSection from "./posts-section";
 import ProjectsSection from "./projects-section";
 import FooterSection from "./footer-section";
-import type { Post } from "@/lib/posts";
+import type { PostSummary } from "@/lib/posts";
 
 type ScrollContainerProps = {
-  posts: Post[];
+  posts: PostSummary[];
 };
 
 export default function ScrollContainer({ posts }: ScrollContainerProps) {

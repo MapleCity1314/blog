@@ -8,6 +8,8 @@ const withMDX = createMDX({
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  cacheComponents: true,
+  output: "standalone",
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
   images: {
     remotePatterns: [

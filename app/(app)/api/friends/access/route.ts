@@ -1,12 +1,26 @@
 import { NextResponse } from "next/server";
 import { sendAccessEmail } from "@/lib/friends/mailer";
 import { createAccessRequest, verifyAccessToken, writeAccessOutbox } from "@/lib/friends/store";
+import { checkRateLimit, getSiteBaseUrl } from "@/lib/security";
 
-export const dynamic = "force-dynamic";
 
 const ADMIN_EMAIL = process.env.FRIENDS_ADMIN_EMAIL || "presto1314@qq.com";
 
 export async function GET(request: Request) {
+  // 对 token 校验也做简单限流，防止暴力尝试
+  const clientIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+  const rateKey = `friends-access-get:${clientIp}`;
+  const allowed = await checkRateLimit(rateKey, 30, 1000 * 60 * 10); // 10 分钟内最多 30 次
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   const url = new URL(request.url);
   const token = url.searchParams.get("token")?.trim() || "";
   if (!token) {
@@ -21,9 +35,23 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    // 限制 access 请求频率，防止邮件轰炸
+    const clientIp =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    const rateKey = `friends-access-post:${clientIp}`;
+    const allowed = await checkRateLimit(rateKey, 5, 1000 * 60 * 30); // 30 分钟内最多 5 次
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many access requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const record = await createAccessRequest();
-    const origin = new URL(request.url).origin;
-    const confirmUrl = `${origin}/friends?friendAccess=${record.token}`;
+    const baseUrl = getSiteBaseUrl();
+    const confirmUrl = `${baseUrl}/friends?friendAccess=${record.token}`;
 
     await sendAccessEmail({ to: ADMIN_EMAIL, confirmUrl });
     await writeAccessOutbox({ to: ADMIN_EMAIL, confirmUrl, token: record.token });

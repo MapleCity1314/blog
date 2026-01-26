@@ -1,20 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useTransform } from "framer-motion";
+import { motion, useTransform, type MotionValue } from "framer-motion";
 import { Terminal, ArrowRight, ArrowUpRight } from "lucide-react";
-import type { Post } from "@/lib/posts";
+import type { PostSummary } from "@/lib/posts";
 
 type PostsSectionProps = {
-  posts: Post[];
-  scrollProgress: any;
+  posts: PostSummary[];
+  scrollProgress: MotionValue<number>;
 };
 
 export default function PostsSection({ posts, scrollProgress }: PostsSectionProps) {
   const opacity = useTransform(scrollProgress, [0.2, 0.3, 0.4], [0, 1, 0]);
   const x = useTransform(scrollProgress, [0.2, 0.3, 0.4], [100, 0, -100]);
 
-  // 只显示最新的 3 篇文章
   const recentPosts = posts.slice(0, 3);
 
   return (
@@ -55,17 +54,14 @@ export default function PostsSection({ posts, scrollProgress }: PostsSectionProp
   );
 }
 
-// 日志条目组件：全息数据流风格
-function LogEntry({ post }: { post: Post }) {
-  // 计算阅读时间（简单估算：每 200 字约 1 分钟）
-  const wordCount = post.content?.split(/\s+/).length || 0;
+function LogEntry({ post }: { post: PostSummary }) {
+  const wordCount = post.metadata.description?.split(/\s+/).length || 0;
   const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
   return (
     <Link href={`/posts/${post.slug}`} className="group relative block">
-      {/* 悬停时的背景光效 */}
       <div className="absolute inset-0 bg-primary/5 scale-x-95 opacity-0 group-hover:opacity-100 group-hover:scale-x-100 transition-all duration-300 rounded-sm origin-left" />
-      
+
       <div className="relative flex items-baseline justify-between py-4 px-4 border-l-2 border-border group-hover:border-primary transition-colors">
         <div className="space-y-1">
           <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground uppercase tracking-wider">
@@ -81,7 +77,7 @@ function LogEntry({ post }: { post: Post }) {
             {post.metadata.title}
           </h3>
         </div>
-        
+
         <div className="hidden sm:flex items-center gap-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
           <span className="font-mono text-[10px] text-muted-foreground">{readTime} min</span>
           <ArrowUpRight size={14} className="text-primary" />

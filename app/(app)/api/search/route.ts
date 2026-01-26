@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPosts } from "@/lib/posts";
+import { getPostsWithContent } from "@/lib/posts";
 
-export const dynamic = "force-dynamic";
 
 type SearchResult = {
   slug: string;
@@ -19,7 +18,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ results: [] });
   }
 
-  const posts = getPosts();
+  const posts = await getPostsWithContent();
   const results = posts
     .map((post) => ({
       slug: post.slug,

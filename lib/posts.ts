@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { cache } from "react";
+import { cacheLife } from "next/cache";
 
 const postsDirectory = path.join(process.cwd(), "content/posts");
 
@@ -16,31 +18,85 @@ export type Post = {
   content: string;
 };
 
-// 获取所有文章列表（用于列表页）
-export function getPosts(): Post[] {
+export type PostSummary = Omit<Post, "content">;
+export type PostMetadata = Post["metadata"];
+
+const normalizeMetadata = (data: Record<string, any>, fallbackDate: string): Post["metadata"] => ({
+  title: data.title || "Untitled",
+  date: data.date || fallbackDate,
+  description: data.description || "",
+  tags: Array.isArray(data.tags) ? data.tags : [],
+  published: data.published !== false,
+});
+
+const sortByDateDesc = (a: Post["metadata"], b: Post["metadata"]) => {
+  if (a.date < b.date) {
+    return 1;
+  }
+  return -1;
+};
+
+// List page only needs frontmatter; avoid loading MDX content into memory.
+export const getPostSummaries = async (): Promise<PostSummary[]> => {
+  "use cache";
+  cacheLife("max");
+
   if (!fs.existsSync(postsDirectory)) {
     return [];
   }
 
-  const fileNames = fs.readdirSync(postsDirectory);
-  const allPostsData = fileNames
-    .filter((fileName) => fileName.endsWith(".mdx"))
-    .map((fileName) => {
+  const fileNames = await fs.promises.readdir(postsDirectory);
+  const mdxNames = fileNames.filter((fileName) => fileName.endsWith(".mdx"));
+
+  const allPostsData = await Promise.all(
+    mdxNames.map(async (fileName) => {
       const slug = fileName.replace(/\.mdx$/, "");
       const fullPath = path.join(postsDirectory, fileName);
-      const fileContents = fs.readFileSync(fullPath, "utf8");
-      
-      // 解析 Frontmatter
-      const { data, content } = matter(fileContents);
+      const [fileContents, stats] = await Promise.all([
+        fs.promises.readFile(fullPath, "utf8"),
+        fs.promises.stat(fullPath),
+      ]);
+      const fallbackDate = stats.mtime.toISOString().split("T")[0];
 
-      // 提供默认值，确保所有必需字段都存在
-      const metadata: Post["metadata"] = {
-        title: data.title || "Untitled",
-        date: data.date || new Date().toISOString().split("T")[0],
-        description: data.description || "",
-        tags: Array.isArray(data.tags) ? data.tags : [],
-        published: data.published !== false, // 默认为 true
+      const { data } = matter(fileContents);
+      const metadata = normalizeMetadata(data, fallbackDate);
+
+      return {
+        slug,
+        metadata,
       };
+    })
+  );
+
+  return allPostsData
+    .filter((post) => post.metadata.published !== false)
+    .sort((a, b) => sortByDateDesc(a.metadata, b.metadata));
+};
+
+// Search needs full content; keep separate to avoid heavy work on list routes.
+export const getPostsWithContent = async (): Promise<Post[]> => {
+  "use cache";
+  cacheLife("max");
+
+  if (!fs.existsSync(postsDirectory)) {
+    return [];
+  }
+
+  const fileNames = await fs.promises.readdir(postsDirectory);
+  const mdxNames = fileNames.filter((fileName) => fileName.endsWith(".mdx"));
+
+  const allPostsData = await Promise.all(
+    mdxNames.map(async (fileName) => {
+      const slug = fileName.replace(/\.mdx$/, "");
+      const fullPath = path.join(postsDirectory, fileName);
+      const [fileContents, stats] = await Promise.all([
+        fs.promises.readFile(fullPath, "utf8"),
+        fs.promises.stat(fullPath),
+      ]);
+      const fallbackDate = stats.mtime.toISOString().split("T")[0];
+
+      const { data, content } = matter(fileContents);
+      const metadata = normalizeMetadata(data, fallbackDate);
 
       return {
         slug,
@@ -48,37 +104,48 @@ export function getPosts(): Post[] {
         content,
       };
     })
-    .filter((post) => post.metadata.published !== false); // 只返回已发布的文章
+  );
 
-  // 按日期排序
-  return allPostsData.sort((a, b) => {
-    if (a.metadata.date < b.metadata.date) {
-      return 1;
-    } else {
-      return -1;
+  return allPostsData
+    .filter((post) => post.metadata.published !== false)
+    .sort((a, b) => sortByDateDesc(a.metadata, b.metadata));
+};
+
+export const getPostMetadataBySlug = async (slug: string): Promise<PostMetadata | null> => {
+  "use cache";
+  cacheLife("max");
+
+  try {
+    const fullPath = path.join(postsDirectory, `${slug}.mdx`);
+    if (!fs.existsSync(fullPath)) {
+      return null;
     }
-  });
-}
+    const [fileContents, stats] = await Promise.all([
+      fs.promises.readFile(fullPath, "utf8"),
+      fs.promises.stat(fullPath),
+    ]);
+    const fallbackDate = stats.mtime.toISOString().split("T")[0];
+    const { data } = matter(fileContents);
+    return normalizeMetadata(data, fallbackDate);
+  } catch (e) {
+    return null;
+  }
+};
 
-// 获取单篇文章（用于详情页）
-export function getPostBySlug(slug: string): Post | null {
+// Detail page requires full content; cache to avoid repeated IO in dev.
+export const getPostBySlug = cache((slug: string): Post | null => {
   try {
     const fullPath = path.join(postsDirectory, `${slug}.mdx`);
     if (!fs.existsSync(fullPath)) {
       return null;
     }
     const fileContents = fs.readFileSync(fullPath, "utf8");
+    const stats = fs.statSync(fullPath);
+    const fallbackDate = stats.mtime.toISOString().split("T")[0];
     const { data, content } = matter(fileContents);
-    
-    // 提供默认值，确保所有必需字段都存在
-    const metadata: Post["metadata"] = {
-      title: data.title || "Untitled",
-      date: data.date || new Date().toISOString().split("T")[0],
-      description: data.description || "",
-      tags: Array.isArray(data.tags) ? data.tags : [],
-      published: data.published !== false, // 默认为 true
-    };
-    
+
+    const metadata = normalizeMetadata(data, fallbackDate);
+
     return {
       slug,
       metadata,
@@ -87,4 +154,29 @@ export function getPostBySlug(slug: string): Post | null {
   } catch (e) {
     return null;
   }
-}
+});
+
+// Async version for Suspense streaming boundaries.
+export const getPostBySlugAsync = async (slug: string): Promise<Post | null> => {
+  "use cache";
+  cacheLife("max");
+
+  try {
+    const fullPath = path.join(postsDirectory, `${slug}.mdx`);
+    const [fileContents, stats] = await Promise.all([
+      fs.promises.readFile(fullPath, "utf8"),
+      fs.promises.stat(fullPath),
+    ]);
+    const fallbackDate = stats.mtime.toISOString().split("T")[0];
+    const { data, content } = matter(fileContents);
+    const metadata = normalizeMetadata(data, fallbackDate);
+
+    return {
+      slug,
+      metadata,
+      content,
+    };
+  } catch (e) {
+    return null;
+  }
+};

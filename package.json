@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "build:standalone": "node scripts/build-standalone.mjs",
+    "start:standalone": "node scripts/start-standalone.mjs",
+    "build:docker": "node scripts/build-docker.mjs",
+    "new:post": "node scripts/new-post.mjs"
   },
   "dependencies": {
     "@next/mdx": "^16.1.1",

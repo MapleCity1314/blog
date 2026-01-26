@@ -76,11 +76,20 @@ const EXPERIENCES = [
 export default function AboutPage() {
   const [isDecrypted, setIsDecrypted] = useState(false);
   const [frames, setFrames] = useState<string[]>([]);
+  const [imageError, setImageError] = useState(false);
   
   useEffect(() => {
-    // 模拟数据加载，或者保留原本的fetch逻辑
-    // fetch("/api/frames")...
-    setFrames([]); // 暂时置空以防报错
+    // 从 API 加载 frames 数据
+    fetch("/api/frames")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.frames && Array.isArray(data.frames)) {
+          setFrames(data.frames);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load frames:", error);
+      });
   }, []);
 
   return (
@@ -95,14 +104,23 @@ export default function AboutPage() {
             <div className="md:col-span-4 flex flex-col gap-6">
                 <div className="relative w-48 h-48 rounded-full border border-border bg-background/50 backdrop-blur-md flex items-center justify-center overflow-hidden group mx-auto md:mx-0">
                     <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl group-hover:bg-primary/20 transition-all duration-500" />
-                    <div className="scale-75 group-hover:scale-90 transition-transform duration-500 text-muted-foreground/50">
-                        {/* 这里如果没有frames，显示一个默认图标 */}
+                    <div className="scale-75 group-hover:scale-90 transition-transform duration-500 text-muted-foreground/50 w-full h-full flex items-center justify-center">
+                        {/* 优先显示动画 frames，如果没有则显示头像图片，最后才显示图标 */}
                         {frames.length > 0 ? (
                           <FrameSequencePlayer
                             frames={frames}
                             config={{ scaleX: 1.15, scaleY: 0.9, fps: 40 }}
                           />
-                        ) : <User size={64} />}
+                        ) : imageError ? (
+                          <User size={64} />
+                        ) : (
+                          <img 
+                            src={PARTNER.myAvatar} 
+                            alt={PROFILE.name}
+                            className="w-full h-full object-cover rounded-full"
+                            onError={() => setImageError(true)}
+                          />
+                        )}
                     </div>
                     <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/20 to-transparent w-full h-1 animate-scan" />
                 </div>
