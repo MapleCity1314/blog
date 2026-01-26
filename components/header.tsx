@@ -13,7 +13,7 @@ const navItems = [
   { label: "Posts", href: "/posts" },
   { label: "Friends", href: "/friends" },
   { label: "About", href: "/about" },
-  { label: "Try z0", href: "/try-z0", special: true },
+  { label: "Try u0", href: "http://icstudio.top/chat", target: "_blank", special: true },
 ];
 
 type SearchResult = {
