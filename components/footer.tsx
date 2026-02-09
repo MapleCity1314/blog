@@ -6,13 +6,13 @@ import { motion } from "framer-motion";
 import { ArrowUp, Github, Twitter, Mail, Command } from "lucide-react";
 
 const socialLinks = [
-  { label: "GitHub", href: "https://github.com/yourusername", icon: Github },
-  { label: "Twitter", href: "https://twitter.com/yourusername", icon: Twitter },
-  { label: "Email", href: "mailto:your@email.com", icon: Mail },
+  { label: "GitHub", href: "https://github.com/MapleCity1314", icon: Github },
+  { label: "Twitter", href: "https://x.com/maplecity1314", icon: Twitter },
+  { label: "Email", href: "mailto:murder051215@outlook.com", icon: Mail },
 ];
 
 const footerLinks = [
-  { label: "Timeline", href: "/timeline" },
+  { label: "Posts", href: "/posts" },
   { label: "Friends", href: "/friends" },
   { label: "About", href: "/about" },
 ];
@@ -98,18 +98,18 @@ const FluidStrip = () => {
 
 export default function Footer() {
   const [uptime, setUptime] = useState("计算中…");
+  const [currentYear, setCurrentYear] = useState<string>("");
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-  const currentYear = new Date().getFullYear();
 
   useEffect(() => {
     const updateUptime = () => {
       setUptime(formatUptime(SITE_START_AT));
     };
 
+    setCurrentYear(new Date().getFullYear().toString());
     updateUptime();
     const timer = setInterval(updateUptime, 60 * 1000);
     return () => clearInterval(timer);
@@ -206,7 +206,7 @@ export default function Footer() {
         <div className="border-t border-foreground/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-muted-foreground/80 font-light">
           
           <div className="flex flex-col md:flex-row items-center gap-2 md:gap-6">
-            <span>&copy; {currentYear} Presto. All rights reserved.</span>
+            <span>&copy; {currentYear || "—"} Presto. All rights reserved.</span>
             <span>本站居然已经运行了{uptime}</span>
             
             <a 

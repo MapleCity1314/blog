@@ -6,21 +6,26 @@ import FrameSequencePlayer from "@/components/frame/frame-sequence-player";
 
 type GhostActorProps = {
   scrollProgress: any;
+  initialFrames: string[];
 };
 
-export default function GhostActor({ scrollProgress }: GhostActorProps) {
-  const [frames, setFrames] = useState<string[]>([]);
+export default function GhostActor({ scrollProgress, initialFrames }: GhostActorProps) {
+  const [frames, setFrames] = useState<string[]>(initialFrames);
   
   useEffect(() => {
+    if (initialFrames.length > 1) {
+      return;
+    }
     fetch("/api/frames")
       .then((res) => res.json())
       .then((data) => {
-        if (data.frames) setFrames(data.frames);
+        if (data.frames) {
+          setFrames(data.frames);
+        }
       })
       .catch((err) => console.error(err));
-  }, []);
+  }, [initialFrames.length]);
 
-  // Use spring-driven transforms for smoother motion.
   const ghostX = useTransform(scrollProgress, [0, 0.3, 0.6, 1], ["0%", "-45%", "45%", "0%"]);
   const ghostY = useTransform(scrollProgress, [0, 0.3, 0.6, 1], ["-10%", "-5%", "5%", "-10%"]);
   const ghostScale = useTransform(scrollProgress, [0, 0.2, 0.8, 1], [0.55, 0.4, 0.4, 0.55]);
@@ -30,7 +35,6 @@ export default function GhostActor({ scrollProgress }: GhostActorProps) {
 
   return (
     <div className="fixed inset-0 z-0 flex items-center justify-center pointer-events-none">
-      {/* Motion trail */}
       <motion.svg 
         style={{ opacity: lineOpacity }} 
         className="absolute inset-0 w-full h-full text-primary" 
@@ -58,7 +62,6 @@ export default function GhostActor({ scrollProgress }: GhostActorProps) {
           )}
         </div>
         
-        {/* Status indicator */}
         <motion.div 
           style={{ opacity: statusOpacity }}
           className="absolute top-[120%] left-1/2 -translate-x-1/2 text-center whitespace-nowrap"

@@ -13,7 +13,9 @@ output/*
 !.yarn/releases
 !.yarn/versions
 
-skills\*
+skills/*
+.claude/*
+.agents/*
 # testing
 /coverage
 
@@ -48,3 +50,5 @@ yarn-error.log*
 next-env.d.ts
 
 bun.lock
+
+nginx/*

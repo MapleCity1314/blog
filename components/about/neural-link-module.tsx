@@ -2,20 +2,32 @@
 
 import { motion } from "framer-motion";
 import { Heart, Link as LinkIcon, Lock } from "lucide-react";
-
-type Partner = {
-  myAvatar: string;
-  partnerAvatar: string;
-  daysTogether: number;
-  alias1: string;
-  alias2: string;
-};
+import { useEffect, useMemo, useState } from "react";
+import type { AboutPartner } from "@/lib/data/about";
 
 type NeuralLinkModuleProps = {
-  partner: Partner;
+  partner: AboutPartner;
 };
 
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+function getDaysTogether(startTime: number, now: number) {
+  if (!Number.isFinite(startTime)) return 0;
+  return Math.max(0, Math.floor((now - startTime) / MS_PER_DAY));
+}
+
 export function NeuralLinkModule({ partner }: NeuralLinkModuleProps) {
+  const startTime = useMemo(() => new Date(partner.startDate).getTime(), [partner.startDate]);
+  const [daysTogether, setDaysTogether] = useState(() => getDaysTogether(startTime, Date.now()));
+
+  useEffect(() => {
+    setDaysTogether(getDaysTogether(startTime, Date.now()));
+    const interval = setInterval(() => {
+      setDaysTogether(getDaysTogether(startTime, Date.now()));
+    }, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [startTime]);
+
   return (
     <div className="relative group p-4 rounded-xl border border-pink-500/20 bg-background/40 backdrop-blur-sm overflow-hidden hover:border-pink-500/40 transition-all duration-500">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:14px_14px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
@@ -52,7 +64,7 @@ export function NeuralLinkModule({ partner }: NeuralLinkModuleProps) {
           </div>
           <div className="mt-2 flex items-center gap-1 text-pink-400">
             <Heart size={10} className="fill-pink-400/50 animate-pulse" />
-            <span className="text-xs font-bold font-mono tabular-nums">{partner.daysTogether}d</span>
+            <span className="text-xs font-bold font-mono tabular-nums">{daysTogether}d</span>
           </div>
           <span className="text-[9px] text-muted-foreground/50 scale-90 uppercase">Connection Uptime</span>
         </div>

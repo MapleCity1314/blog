@@ -1,17 +1,6 @@
-"use client";
-
 import { Terminal } from "lucide-react";
 import { SectionTitle } from "@/components/about/section-title";
-
-type Experience = {
-  id: string;
-  role: string;
-  company: string;
-  period: string;
-  desc: string;
-  tech: string[];
-  highlight: string;
-};
+import type { AboutExperience as Experience } from "@/lib/data/about";
 
 type AboutExperienceProps = {
   experiences: Experience[];
@@ -20,24 +9,28 @@ type AboutExperienceProps = {
 export function AboutExperience({ experiences }: AboutExperienceProps) {
   return (
     <section>
-      <SectionTitle title="Execution_Logs (Projects)" icon={<Terminal size={16} />} />
-      <div className="relative border-l border-dashed border-border ml-3 md:ml-6 space-y-12 pb-12">
+      <SectionTitle title="Execution_Logs (Experience)" icon={<Terminal size={16} />} />
+      <div className="space-y-4">
         {experiences.map((exp) => (
-          <div key={exp.id} className="relative pl-8 md:pl-12 group">
-            <div className="absolute left-[-5px] top-1.5 w-2.5 h-2.5 rounded-full border border-background bg-muted-foreground group-hover:bg-primary group-hover:scale-125 transition-all" />
-            <div className="flex flex-col md:flex-row md:items-baseline justify-between mb-2">
-              <h3 className="text-2xl font-bold font-sans group-hover:text-primary transition-colors">{exp.company}</h3>
-              <span className="font-mono text-xs text-muted-foreground">{exp.period}</span>
+          <div key={exp.id} className="group relative border border-border/60 p-6 bg-background/40 hover:border-primary/40 transition-all">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-4">
+                <span className="text-[10px] font-mono font-bold text-primary italic">[{exp.id}]</span>
+                <h3 className="text-xl font-bold tracking-tight uppercase group-hover:text-primary transition-colors">{exp.company}</h3>
+              </div>
+              <span className="text-[10px] font-mono text-muted-foreground tracking-widest">{exp.period}</span>
             </div>
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-xs font-mono px-2 py-0.5 rounded border border-border text-muted-foreground">
-                {exp.role}
-              </span>
-            </div>
-            <p className="text-muted-foreground mb-4 max-w-3xl leading-relaxed">{exp.desc}</p>
-            <div className="bg-muted/30 rounded-lg p-3 border-l-2 border-primary/50 text-sm text-foreground/80 mb-4">
-              <span className="font-bold text-primary mr-2">Impact:</span>
-              {exp.highlight}
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-3xl mb-4 font-light italic">
+              {exp.desc}
+            </p>
+            <div className="flex items-center gap-2">
+                <span className="text-[9px] font-mono uppercase bg-primary/10 text-primary px-2 py-0.5 border border-primary/20">
+                    {exp.role}
+                </span>
+                <div className="h-px flex-1 bg-border/40" />
+                <span className="text-[9px] font-mono text-muted-foreground/60 uppercase">
+                    Impact_Verified
+                </span>
             </div>
           </div>
         ))}

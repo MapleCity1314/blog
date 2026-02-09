@@ -1,8 +1,8 @@
-"use client";
+import type { ReactNode } from "react";
 
 type SectionTitleProps = {
   title: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 };
 
 export function SectionTitle({ title, icon }: SectionTitleProps) {

@@ -14,6 +14,7 @@ export type Post = {
     description: string;
     tags: string[];
     published: boolean;
+    cover?: string;
   };
   content: string;
 };
@@ -27,6 +28,7 @@ const normalizeMetadata = (data: Record<string, any>, fallbackDate: string): Pos
   description: data.description || "",
   tags: Array.isArray(data.tags) ? data.tags : [],
   published: data.published !== false,
+  cover: typeof data.cover === "string" ? data.cover : undefined,
 });
 
 const sortByDateDesc = (a: Post["metadata"], b: Post["metadata"]) => {

@@ -23,7 +23,7 @@ export default function HeroSection({ scrollProgress }: HeroSectionProps) {
           Presto<span className="text-primary">.</span>
         </h1>
         <p className="font-serif italic text-xl text-muted-foreground/80">
-          "The digital ghost in the machine."
+          "Independent thinking，sound judgment."
         </p>
       </motion.div>
     </section>

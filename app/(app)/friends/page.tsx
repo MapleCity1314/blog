@@ -104,9 +104,29 @@ export default function NeuralBladesFriends() {
   const handleCopyMyInfo = async () => {
     try {
       const textToCopy = JSON.stringify(MY_SITE_INFO, null, 2);
-      await navigator.clipboard.writeText(textToCopy);
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
+      let didCopy = false;
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+        didCopy = true;
+      } else if (typeof document !== "undefined") {
+        const textarea = document.createElement("textarea");
+        textarea.value = textToCopy;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.top = "-9999px";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        didCopy = document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      if (didCopy) {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      } else {
+        console.error("Copy failed: clipboard API not available.");
+      }
     } catch (err) {
       console.error(err);
     }
