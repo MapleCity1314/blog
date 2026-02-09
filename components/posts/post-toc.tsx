@@ -10,12 +10,12 @@ type PostTOCProps = {
 };
 
 export async function PostTOC({ slug, content }: PostTOCProps) {
+  "use cache";
+  cacheLife("max");
+
   let source = content ?? "";
 
   if (!source) {
-    "use cache";
-    cacheLife("max");
-
     const post = await getPostBySlugAsync(slug);
     if (!post) {
       return null;

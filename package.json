@@ -10,7 +10,8 @@
     "build:standalone": "node scripts/build-standalone.mjs",
     "start:standalone": "node scripts/start-standalone.mjs",
     "build:docker": "node scripts/build-docker.mjs",
-    "new:post": "node scripts/new-post.mjs"
+    "new:post": "node scripts/new-post.mjs",
+    "lint:oxlint": "oxlint ."
   },
   "dependencies": {
     "@next/mdx": "^16.1.1",
@@ -48,6 +49,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "oxlint": "^1.43.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },

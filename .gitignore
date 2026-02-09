@@ -52,3 +52,5 @@ next-env.d.ts
 bun.lock
 
 nginx/*
+docs
+docs/*

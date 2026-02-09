@@ -55,11 +55,11 @@ export default function Home() {
 比如这个：
 ```tsx
 const getCurrentTime = async () => {
-  return Date.now();
+  return Date&#46;now();
 }
 ```
 
-`Date.now()` 
+`Date&#46;now()` 
 就是一个标准的IO，因为你不可能在构建阶段就知道现在是什么时间
 所以只要你的组件里有这种东西，整个组件就会被 Next.js 认定为 “运行时组件”，无法预渲染。
 
@@ -115,17 +115,17 @@ revalidateTag("current-time") 的语义其实很简单，它做的事情不是�
 因为检测一个东西是否是 IO 非常复杂，所以 Next.js 做了个折中：
 只要你把函数写成 async，它就会认为你里面可能存在 IO。
 一个 async 组件也就自然地被当成 “运行时组件”，不会参与完全的预渲染。
-这就是为什么明明 Date.now() 是同步的，但我们还是建议：
+这就是为什么明明 Date&#46;now() 是同步的，但我们还是建议：
     
 ```tsx
-const getCurrentTime = async () => Date.now()
+const getCurrentTime = async () => Date&#46;now()
 ```
     
 因为你把它写成 async，Next.js 才会帮你进行正确的策略处理（否则可能直接被静态化了，这肯定不符合你的预期）。
     
 另外一个注释点也挺重要：
 小部分情况：没有 async，但是是 IO
-比如 Math.random()、Date.now()
+比如 Math.random()、Date&#46;now()
 Next.js 没办法完美检测这种同步 IO，所以最好你自己主动标注。
 换句话说：  
 只依赖 async 来判断 IO 并不完美

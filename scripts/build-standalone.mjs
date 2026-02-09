@@ -7,6 +7,7 @@ const outputDir = path.join(root, "output", "standalone");
 const standaloneDir = path.join(root, ".next", "standalone");
 const nextStaticDir = path.join(root, ".next", "static");
 const publicDir = path.join(root, "public");
+const contentDir = path.join(root, "content");
 
 const envExampleCandidates = [
   path.join(root, ".env.example"),
@@ -40,6 +41,10 @@ if (!copyDir(nextStaticDir, path.join(outputDir, ".next", "static"))) {
 
 if (!copyDir(publicDir, path.join(outputDir, "public"))) {
   console.warn("Skipping public copy because it was not found.");
+}
+
+if (!copyDir(contentDir, path.join(outputDir, "content"))) {
+  console.warn("Skipping content copy because it was not found.");
 }
 
 const envExample = envExampleCandidates.find((candidate) =>
