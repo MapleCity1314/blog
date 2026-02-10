@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
+  MessageSquare,
   Library,
   Users,
   Settings,
@@ -25,6 +26,7 @@ import AdminToastBridge from "@/components/admin/admin-toast-bridge";
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Posts", href: "/admin/posts", icon: FileText },
+  { name: "Comments", href: "/admin/comments", icon: MessageSquare },
   { name: "Resources", href: "/admin/resources", icon: Library },
   { name: "Friends", href: "/admin/friends", icon: Users },
   { name: "Settings", href: "/admin/settings", icon: Settings },

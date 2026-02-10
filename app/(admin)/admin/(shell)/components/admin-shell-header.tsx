@@ -3,6 +3,7 @@
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/posts", label: "Posts" },
+  { href: "/admin/comments", label: "Comments" },
   { href: "/admin/resources", label: "Resources" },
   { href: "/admin/friends", label: "Friends" },
   { href: "/admin/settings", label: "Settings" },
