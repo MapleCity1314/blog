@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { sendAccessEmail } from "@/lib/friends/mailer";
-import { createAccessRequest, verifyAccessToken, writeAccessOutbox } from "@/lib/friends/store";
+import {
+  approveAccessToken,
+  createAccessRequest,
+  verifyPendingAccessToken,
+  writeAccessOutbox,
+} from "@/lib/friends/store";
 import { checkRateLimit, getSiteBaseUrl } from "@/lib/security";
 
 
@@ -26,9 +31,13 @@ export async function GET(request: Request) {
   if (!token) {
     return NextResponse.json({ error: "Missing token." }, { status: 400 });
   }
-  const status = await verifyAccessToken(token);
+  const status = await verifyPendingAccessToken(token);
   if (!status.ok) {
     return NextResponse.json({ error: "Invalid token.", reason: status.reason }, { status: 401 });
+  }
+  const approved = await approveAccessToken(token);
+  if (!approved) {
+    return NextResponse.json({ error: "Token cannot be approved." }, { status: 409 });
   }
   return NextResponse.json({ ok: true });
 }

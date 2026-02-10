@@ -1,4 +1,4 @@
-export type ResourceCategory = "Framework" | "Component Library";
+export type ResourceCategory = string;
 
 export type ResourceCategoryFilter = "All" | ResourceCategory;
 
@@ -11,6 +11,6 @@ export type ResourceItem = {
   kind: ResourceCategory;
   status: ResourceStatus;
   summary: string;
-  tags: string[];
-  image: string;
+  tags?: string[];
+  image?: string;
 };

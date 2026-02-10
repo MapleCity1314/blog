@@ -20,11 +20,12 @@ export default function ResourcesExplorer({ resources, categories }: ResourcesEx
   const filteredResources = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return resources.filter((item) => {
+      const tags = item.tags ?? [];
       const matchesCategory = activeCategory === "All" || item.kind === activeCategory;
       const matchesSearch =
         query.length === 0 ||
         item.title.toLowerCase().includes(query) ||
-        item.tags.some((tag) => tag.toLowerCase().includes(query));
+        tags.some((tag) => tag.toLowerCase().includes(query));
       return matchesCategory && matchesSearch;
     });
   }, [activeCategory, resources, searchQuery]);

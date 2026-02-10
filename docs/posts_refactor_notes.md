@@ -1,23 +1,27 @@
-# Posts Refactor Notes (MDX + Admin Ready)
+# Posts 重构记录（MDX + Admin）
 
-## Current State
-- Source: local `content/posts/*.mdx`
-- Rendering: Server Components + `next-mdx-remote` with custom MDX components
-- Caching: `use cache` + `cacheLife("max")` in list/detail loaders
+## 当前状态
+- 来源：本地 `content/posts/*.mdx`
+- 渲染：Server Components + `next-mdx-remote` + 自定义 MDX 组件
+- 缓存：列表/详情加载器使用 `use cache` + `cacheLife("max")`
 
-## Future DB Migration Plan (PostgreSQL)
-1. Create `posts` table with fields:
+## 未来数据库迁移（PostgreSQL）
+1. 创建 `posts` 表：
    - `id`, `slug`, `title`, `description`, `tags`, `mdx_content`
    - `status` (draft/published), `published_at`, `created_at`, `updated_at`
-   - optional `cover`
-2. Replace filesystem reads in `lib/posts.ts` with DB queries.
-3. Keep MDX rendering pipeline unchanged:
-   - load `mdx_content` from DB
-   - render with `MDXRemote` + `useMDXComponents`
-4. Add Admin CRUD to write MDX and update status.
+   - 可选 `cover`
+2. 新增 `post_metrics`（阅读量 + 互动统计）：
+   - `view_count`, `like_count`, `dislike_count`, `share_count`, `comment_count`
+3. 新增 `tags` + `post_tags` 做统一管理
+4. 新增 `comments`（匿名 + 支持嵌套评论）
+2. 将 `lib/posts.ts` 的文件读取替换为 DB 查询。
+3. MDX 渲染链路保持不变：
+   - 从 DB 读取 `mdx_content`
+   - 使用 `MDXRemote` + `useMDXComponents` 渲染
+4. 增加 Admin CRUD 写入 MDX 与更新状态。
 
-## Non-Negotiables
-- MDX components stay in `mdx-components.tsx`
-- Rendering stays server-side
-- No client-side MDX compilation
-- `slug` remains stable canonical identifier
+## 必须保持不变
+- MDX 组件仍放在 `mdx-components.tsx`
+- 渲染仍在服务端
+- 禁止客户端编译 MDX
+- `slug` 作为稳定的规范化标识

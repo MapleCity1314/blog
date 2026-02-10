@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Calendar, ShieldCheck, Tag } from "lucide-react";
 
+import { PostViewCount } from "@/components/posts/post-view-count";
+
 type PostMetadata = {
   title: string;
   date: string;
@@ -27,6 +29,7 @@ export function PostDetailHeader({ slug, metadata, actions }: PostDetailHeaderPr
           <span className="flex items-center gap-1.5">
             <Calendar size={12} /> {metadata.date}
           </span>
+          <PostViewCount slug={slug} />
           <span className="flex items-center gap-1.5">
             <ShieldCheck size={12} className="text-emerald-500" /> STATUS: DECRYPTED
           </span>

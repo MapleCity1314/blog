@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { addFriend, consumeAccessToken, getFriends, verifyAccessToken } from "@/lib/friends/store";
+import { getFriends, submitFriendRequest, verifyAccessToken } from "@/lib/friends/store";
 import type { FriendInput } from "@/lib/friends/types";
 import { checkRateLimit } from "@/lib/security";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
   const friends = await getFriends();
@@ -56,9 +57,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid URL format." }, { status: 400 });
     }
 
-    const friend = await addFriend(input);
-    await consumeAccessToken(accessToken);
-    return NextResponse.json({ friend }, { status: 201 });
+    const requestId = await submitFriendRequest(accessToken, input);
+    if (!requestId) {
+      return NextResponse.json({ error: "Access token is invalid." }, { status: 401 });
+    }
+
+    revalidatePath("/friends");
+    revalidatePath("/admin/friends");
+    return NextResponse.json({ ok: true, requestId }, { status: 201 });
   } catch (error) {
     console.error("Failed to create friend:", error);
     return NextResponse.json({ error: "Failed to create friend." }, { status: 500 });

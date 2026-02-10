@@ -1,10 +1,8 @@
 import fs from "fs";
-import path from "path";
 import matter from "gray-matter";
 import { cache } from "react";
 import { cacheLife } from "next/cache";
-
-const postsDirectory = path.join(process.cwd(), "content/posts");
+import { listPostFileEntries, resolvePostFilePath } from "@/lib/post-files";
 
 export type Post = {
   slug: string;
@@ -43,17 +41,10 @@ export const getPostSummaries = async (): Promise<PostSummary[]> => {
   "use cache";
   cacheLife("max");
 
-  if (!fs.existsSync(postsDirectory)) {
-    return [];
-  }
-
-  const fileNames = await fs.promises.readdir(postsDirectory);
-  const mdxNames = fileNames.filter((fileName) => fileName.endsWith(".mdx"));
+  const entries = await listPostFileEntries();
 
   const allPostsData = await Promise.all(
-    mdxNames.map(async (fileName) => {
-      const slug = fileName.replace(/\.mdx$/, "");
-      const fullPath = path.join(postsDirectory, fileName);
+    entries.map(async ({ slug, filePath: fullPath }) => {
       const [fileContents, stats] = await Promise.all([
         fs.promises.readFile(fullPath, "utf8"),
         fs.promises.stat(fullPath),
@@ -80,17 +71,10 @@ export const getPostsWithContent = async (): Promise<Post[]> => {
   "use cache";
   cacheLife("max");
 
-  if (!fs.existsSync(postsDirectory)) {
-    return [];
-  }
-
-  const fileNames = await fs.promises.readdir(postsDirectory);
-  const mdxNames = fileNames.filter((fileName) => fileName.endsWith(".mdx"));
+  const entries = await listPostFileEntries();
 
   const allPostsData = await Promise.all(
-    mdxNames.map(async (fileName) => {
-      const slug = fileName.replace(/\.mdx$/, "");
-      const fullPath = path.join(postsDirectory, fileName);
+    entries.map(async ({ slug, filePath: fullPath }) => {
       const [fileContents, stats] = await Promise.all([
         fs.promises.readFile(fullPath, "utf8"),
         fs.promises.stat(fullPath),
@@ -118,8 +102,8 @@ export const getPostMetadataBySlug = async (slug: string): Promise<PostMetadata 
   cacheLife("max");
 
   try {
-    const fullPath = path.join(postsDirectory, `${slug}.mdx`);
-    if (!fs.existsSync(fullPath)) {
+    const fullPath = resolvePostFilePath(slug);
+    if (!fullPath) {
       return null;
     }
     const [fileContents, stats] = await Promise.all([
@@ -137,8 +121,8 @@ export const getPostMetadataBySlug = async (slug: string): Promise<PostMetadata 
 // Detail page requires full content; cache to avoid repeated IO in dev.
 export const getPostBySlug = cache((slug: string): Post | null => {
   try {
-    const fullPath = path.join(postsDirectory, `${slug}.mdx`);
-    if (!fs.existsSync(fullPath)) {
+    const fullPath = resolvePostFilePath(slug);
+    if (!fullPath) {
       return null;
     }
     const fileContents = fs.readFileSync(fullPath, "utf8");
@@ -164,7 +148,10 @@ export const getPostBySlugAsync = async (slug: string): Promise<Post | null> => 
   cacheLife("max");
 
   try {
-    const fullPath = path.join(postsDirectory, `${slug}.mdx`);
+    const fullPath = resolvePostFilePath(slug);
+    if (!fullPath) {
+      return null;
+    }
     const [fileContents, stats] = await Promise.all([
       fs.promises.readFile(fullPath, "utf8"),
       fs.promises.stat(fullPath),

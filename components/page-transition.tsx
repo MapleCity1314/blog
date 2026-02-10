@@ -16,7 +16,11 @@ function FrozenRouter(props: { children: React.ReactNode }) {
   );
 }
 
-export default function PageTransition({ children }: { children: React.ReactNode }) {
+export default function PageTransition({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const pathname = usePathname();
 
   return (
@@ -27,8 +31,8 @@ export default function PageTransition({ children }: { children: React.ReactNode
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 1.02 }}
         transition={{
-          duration: 0.4, // 稍微慢一点，营造优雅感
-          ease: [0.22, 1, 0.36, 1], // 自定义贝塞尔曲线 (Expo Out)，非常丝滑
+          duration: 0.4,
+          ease: [0.22, 1, 0.36, 1],
         }}
         className="min-h-screen w-full"
       >

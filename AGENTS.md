@@ -27,7 +27,8 @@ Use strict TypeScript and modern React (see `tsconfig.json`). Prefer Server Comp
 
 
 ## File Encoding & Read-Only Mode
-- **Encoding MUST be UTF-8** for all `.md/.mdx` files. Avoid PowerShell `Set-Content` unless `-Encoding utf8` is explicitly set. Prefer `apply_patch`, or Python with `encoding="utf-8"`.
+- **Encoding MUST be UTF-8** for all `.md/.mdx` files.
+- **NEVER use PowerShell `Set-Content` (or similar) to write files.** Use `apply_patch`, or Python with `encoding="utf-8"` to avoid encoding corruption.
 - **If filesystem is read-only**, do not attempt any edits. Acknowledge the constraint and wait for the user to release write access before proceeding.
 
 

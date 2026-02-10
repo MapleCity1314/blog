@@ -6,6 +6,38 @@ import matter from "gray-matter";
 const postsDirectory = path.join(process.cwd(), "content", "posts");
 const outputPath = path.join(process.cwd(), "public", "search-index.json");
 
+const resolvePostEntries = async () => {
+  const entries = await fs.readdir(postsDirectory, { withFileTypes: true });
+  const mapped = entries
+    .map((entry) => {
+      if (entry.isDirectory()) {
+        return {
+          slug: entry.name,
+          fullPath: path.join(postsDirectory, entry.name, "index.mdx"),
+        };
+      }
+      if (entry.isFile() && entry.name.endsWith(".mdx")) {
+        return {
+          slug: entry.name.replace(/\.mdx$/, ""),
+          fullPath: path.join(postsDirectory, entry.name),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  return Promise.all(
+    mapped.map(async (item) => {
+      try {
+        await fs.access(item.fullPath);
+        return item;
+      } catch {
+        return null;
+      }
+    })
+  ).then((items) => items.filter(Boolean));
+};
+
 const normalizeMetadata = (data, fallbackDate) => ({
   title: typeof data.title === "string" && data.title.trim() ? data.title : "Untitled",
   date: typeof data.date === "string" && data.date.trim() ? data.date : fallbackDate,
@@ -26,13 +58,10 @@ const buildIndex = async () => {
     return [];
   }
 
-  const fileNames = await fs.readdir(postsDirectory);
-  const mdxNames = fileNames.filter((fileName) => fileName.endsWith(".mdx"));
+  const postEntries = await resolvePostEntries();
 
   const items = await Promise.all(
-    mdxNames.map(async (fileName) => {
-      const slug = fileName.replace(/\.mdx$/, "");
-      const fullPath = path.join(postsDirectory, fileName);
+    postEntries.map(async ({ slug, fullPath }) => {
       const [fileContents, stats] = await Promise.all([
         fs.readFile(fullPath, "utf8"),
         fs.stat(fullPath),

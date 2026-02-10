@@ -2,164 +2,82 @@ import "server-only";
 
 import { cache } from "react";
 import { cacheLife } from "next/cache";
+import { desc, eq } from "drizzle-orm";
+import type { ResourceItem, ResourceStatus } from "@/lib/types/resources";
+import { db } from "@/lib/db";
+import { resources as resourcesTable } from "@/lib/db/schema";
 
-import type { ResourceItem } from "@/lib/types/resources";
+type ResourceRow = {
+  id: string;
+  title: string;
+  url: string;
+  status: "draft" | "published" | "archived";
+  description: string | null;
+  category: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
-const RESOURCES: ResourceItem[] = [
-  {
-    id: "RES-001",
-    title: "Next.js",
-    url: "https://nextjs.org",
-    kind: "Framework",
-    status: "Live",
-    summary: "The React framework for production. Hybrid rendering, streaming, and edge-ready routing.",
-    tags: ["React", "Fullstack", "RSC"],
-    image: "https://images.unsplash.com/photo-1480506132288-68f7705954bd?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-002",
-    title: "React",
-    url: "https://react.dev",
-    kind: "Framework",
-    status: "Live",
-    summary: "Component-driven UI library for building interactive interfaces with a declarative model.",
-    tags: ["UI", "SPA", "JSX"],
-    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-003",
-    title: "Vue",
-    url: "https://vuejs.org",
-    kind: "Framework",
-    status: "Live",
-    summary: "Progressive framework with a single-file component model and approachable API.",
-    tags: ["SFC", "Reactivity", "Ecosystem"],
-    image: "https://images.unsplash.com/photo-1527443154391-507e9dc6c5cc?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-004",
-    title: "SvelteKit",
-    url: "https://kit.svelte.dev",
-    kind: "Framework",
-    status: "Live",
-    summary: "Application framework for Svelte with file-based routing, SSR, and adapters.",
-    tags: ["Svelte", "SSR", "Adapters"],
-    image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-005",
-    title: "Astro",
-    url: "https://astro.build",
-    kind: "Framework",
-    status: "Live",
-    summary: "Content-focused framework with partial hydration and multi-framework components.",
-    tags: ["Content", "Islands", "MDX"],
-    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-006",
-    title: "Angular",
-    url: "https://angular.dev",
-    kind: "Framework",
-    status: "Live",
-    summary: "Batteries-included framework with DI, RxJS, and robust tooling for enterprise apps.",
-    tags: ["TypeScript", "RxJS", "Enterprise"],
-    image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-007",
-    title: "SolidStart",
-    url: "https://start.solidjs.com",
-    kind: "Framework",
-    status: "Live",
-    summary: "Fine-grained reactivity with full-stack routing and server functions.",
-    tags: ["Solid", "Reactive", "Edge"],
-    image: "https://images.unsplash.com/photo-1531297484001-80022131f5a1?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-008",
-    title: "Qwik",
-    url: "https://qwik.builder.io",
-    kind: "Framework",
-    status: "Live",
-    summary: "Instant-loading apps with resumability and fine-grained lazy loading.",
-    tags: ["Resumable", "Lazy", "Builder.io"],
-    image: "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-009",
-    title: "MUI",
-    url: "https://mui.com",
-    kind: "Component Library",
-    status: "Live",
-    summary: "Material Design components and theming system for React at scale.",
-    tags: ["Material", "Theme", "React"],
-    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-010",
-    title: "Ant Design",
-    url: "https://ant.design",
-    kind: "Component Library",
-    status: "Live",
-    summary: "Enterprise-grade UI system with a vast, production-ready component set.",
-    tags: ["Enterprise", "Design System", "React"],
-    image: "https://images.unsplash.com/photo-1496171367470-9ed9a91ea931?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-011",
-    title: "Chakra UI",
-    url: "https://chakra-ui.com",
-    kind: "Component Library",
-    status: "Live",
-    summary: "Accessible React components with style props and theme-driven design.",
-    tags: ["Accessibility", "Theme", "React"],
-    image: "https://images.unsplash.com/photo-1488229297570-58520851e868?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-012",
-    title: "Radix UI",
-    url: "https://www.radix-ui.com",
-    kind: "Component Library",
-    status: "Live",
-    summary: "Unstyled, accessible primitives for building design systems.",
-    tags: ["Primitives", "Accessibility", "Headless"],
-    image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-013",
-    title: "shadcn/ui",
-    url: "https://ui.shadcn.com",
-    kind: "Component Library",
-    status: "Live",
-    summary: "Composable components built with Radix and Tailwind, designed to copy and own.",
-    tags: ["Tailwind", "Radix", "CLI"],
-    image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-014",
-    title: "Mantine",
-    url: "https://mantine.dev",
-    kind: "Component Library",
-    status: "Live",
-    summary: "Feature-rich React components with hooks, theming, and a strong DX focus.",
-    tags: ["Hooks", "DX", "React"],
-    image: "https://images.unsplash.com/photo-1527443154391-507e9dc6c5cc?q=80&w=1200&auto=format&fit=crop",
-  },
-  {
-    id: "RES-015",
-    title: "Headless UI",
-    url: "https://headlessui.com",
-    kind: "Component Library",
-    status: "Live",
-    summary: "Completely unstyled, accessible UI components designed to integrate with Tailwind.",
-    tags: ["Headless", "Accessibility", "Tailwind"],
-    image: "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=1200&auto=format&fit=crop",
-  },
-];
+function mapStatus(status: ResourceRow["status"]): ResourceStatus {
+  switch (status) {
+    case "published":
+      return "Live";
+    case "archived":
+      return "Curating";
+    default:
+      return "Drafting";
+  }
+}
+
+function buildTags(category: string | null) {
+  if (!category) return [];
+  return category
+    .split(/[\\s/|,]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function toResourceItem(row: ResourceRow): ResourceItem {
+  return {
+    id: row.id,
+    title: row.title,
+    url: row.url,
+    kind: row.category ?? "Uncategorized",
+    status: mapStatus(row.status),
+    summary: row.description ?? "No description yet.",
+    tags: buildTags(row.category),
+  };
+}
+
+async function fetchResources(status?: ResourceRow["status"]) {
+  const baseQuery = db
+    .select({
+      id: resourcesTable.id,
+      title: resourcesTable.title,
+      url: resourcesTable.url,
+      status: resourcesTable.status,
+      description: resourcesTable.description,
+      category: resourcesTable.category,
+      createdAt: resourcesTable.createdAt,
+      updatedAt: resourcesTable.updatedAt,
+    })
+    .from(resourcesTable);
+
+  const rows = status
+    ? await baseQuery.where(eq(resourcesTable.status, status)).orderBy(desc(resourcesTable.createdAt))
+    : await baseQuery.orderBy(desc(resourcesTable.createdAt));
+
+  return rows.map(toResourceItem);
+}
 
 export const getResourcesData = cache(async () => {
   "use cache";
   cacheLife("hours");
-  return RESOURCES;
+  return fetchResources("published");
+});
+
+export const getResourcesAdminData = cache(async () => {
+  "use cache";
+  cacheLife("hours");
+  return fetchResources();
 });

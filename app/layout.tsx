@@ -5,10 +5,11 @@ import {
   Noto_Serif_SC,
   Quicksand,
 } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import BlogThemeProvider from "@/components/theme-provider";
-import PageTransition from "@/components/page-transition";
+
 
 const quicksand = Quicksand({
   variable: "--font-quicksand",
@@ -60,7 +61,9 @@ export default function RootLayout({
         className={`${quicksand.variable} ${notoSerifSc.variable} ${logoFont.variable} ${geistMono.variable} antialiased`}
       >
         <BlogThemeProvider>
-          <PageTransition>{children}</PageTransition>
+          <Suspense fallback={<div className="min-h-screen w-full" />}>
+            {children}
+          </Suspense>
         </BlogThemeProvider>
       </body>
     </html>

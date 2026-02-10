@@ -14,20 +14,20 @@ if (!slug) {
   process.exit(1);
 }
 
-const fileName = `${slug}.mdx`;
-const filePath = path.join(postsDir, fileName);
+const postDir = path.join(postsDir, slug);
+const filePath = path.join(postDir, "index.mdx");
 
 if (!fs.existsSync(templatePath)) {
   console.error("Missing template at scripts/templates/post.mdx.");
   process.exit(1);
 }
 
-if (fs.existsSync(filePath)) {
-  console.error(`Post already exists: ${filePath}`);
+if (fs.existsSync(path.join(postsDir, `${slug}.mdx`)) || fs.existsSync(filePath)) {
+  console.error(`Post already exists for slug "${slug}".`);
   process.exit(1);
 }
 
-fs.mkdirSync(postsDir, { recursive: true });
+fs.mkdirSync(postDir, { recursive: true });
 
 const today = new Date().toISOString().slice(0, 10);
 const title =

@@ -6,6 +6,10 @@ import { cn } from "@/lib/utils";
 
 export function ResourceCard({ resource }: { resource: ResourceItem }) {
   const isLive = resource.status === "Live";
+  const tags = resource.tags ?? [];
+  const shortId =
+    resource.id.split("-").slice(-1)[0]?.slice(0, 4) ??
+    resource.id.slice(0, 4);
 
   return (
     <motion.a
@@ -23,12 +27,18 @@ export function ResourceCard({ resource }: { resource: ResourceItem }) {
 
       {/* Image Container */}
       <div className="relative aspect-[16/9] w-full overflow-hidden border-b border-border/40">
-        <img
-          src={resource.image}
-          alt={resource.title}
-          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 group-hover:opacity-80 grayscale group-hover:grayscale-0 opacity-40"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+        {resource.image ? (
+          <>
+            <img
+              src={resource.image}
+              alt={resource.title}
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 group-hover:opacity-80 grayscale group-hover:grayscale-0 opacity-40"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,oklch(0.85_0.12_250/50%),transparent_60%),linear-gradient(135deg,oklch(0.18_0.02_260),oklch(0.08_0.02_260))]" />
+        )}
         
         {/* Status Tag */}
         <div className="absolute left-3 top-3 flex items-center gap-2 bg-background/90 px-2 py-1 border border-border/40 shadow-2xl">
@@ -49,7 +59,7 @@ export function ResourceCard({ resource }: { resource: ResourceItem }) {
               {resource.title}
             </h3>
           </div>
-          <span className="text-[10px] font-mono text-muted-foreground/30">#{resource.id.split('-')[1]}</span>
+          <span className="text-[10px] font-mono text-muted-foreground/30">#{shortId}</span>
         </div>
 
         <p className="mb-6 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
@@ -59,9 +69,13 @@ export function ResourceCard({ resource }: { resource: ResourceItem }) {
         {/* Footer */}
         <div className="mt-auto flex items-center justify-between border-t border-dashed border-border/30 pt-4">
           <div className="flex flex-wrap gap-2">
-            {resource.tags.map(tag => (
-              <span key={tag} className="text-[9px] font-mono text-muted-foreground/50 lowercase">#{tag}</span>
-            ))}
+            {tags.length > 0 ? (
+              tags.map((tag) => (
+                <span key={tag} className="text-[9px] font-mono text-muted-foreground/50 lowercase">#{tag}</span>
+              ))
+            ) : (
+              <span className="text-[9px] font-mono text-muted-foreground/40 lowercase">#uncategorized</span>
+            )}
           </div>
           <ExternalLink size={14} className="text-muted-foreground/30 transition-colors group-hover:text-primary" />
         </div>
