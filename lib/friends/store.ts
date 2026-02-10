@@ -333,10 +333,23 @@ export async function rejectFriendRequestById(id: string) {
   return updated.length > 0;
 }
 
-export async function writeAccessOutbox(payload: {
-  to: string;
-  confirmUrl: string;
-  token: string;
-}) {
-  void payload;
+export async function updateFriendById(
+  id: string,
+  input: FriendInput
+) {
+  const updated = await db
+    .update(friends)
+    .set({
+      name: input.name,
+      avatar: input.avatar,
+      role: input.role,
+      url: input.url,
+      desc: input.desc,
+      color: input.color,
+      updatedAt: new Date(),
+    })
+    .where(eq(friends.id, id))
+    .returning({ id: friends.id });
+
+  return updated.length > 0;
 }

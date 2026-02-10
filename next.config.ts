@@ -21,6 +21,19 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "elysia.wiki",
         port: "223",
+      },
+      {
+        protocol: "https",
+        hostname: "icstudio.top",
+      },
+      {
+        protocol: "http",
+        hostname: "icstudio.top",
+      },
+      {
+        protocol: "https",
+        hostname: "icstudio.top",
+        port: "233",
       }
     ],
   },

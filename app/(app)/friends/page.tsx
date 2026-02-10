@@ -187,6 +187,13 @@ export default function NeuralBladesFriends() {
         accessStatus={accessStatus}
         isOpen={isAccessModalOpen}
         onClose={() => setIsAccessModalOpen(false)}
+        onAccessGranted={(token) => {
+          setAccessToken(token);
+          setCanAdd(true);
+          setAccessStatus({ state: "approved", message: "Access confirmed." });
+          setIsAccessModalOpen(false);
+          setIsModalOpen(true);
+        }}
       />
     </div>
   );

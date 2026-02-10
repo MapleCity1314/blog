@@ -8,37 +8,9 @@ import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import type { editor as MonacoEditorNS } from "monaco-editor";
 import {
-  MDXEditor,
-  type MDXEditorMethods,
-  headingsPlugin,
-  listsPlugin,
-  quotePlugin,
-  thematicBreakPlugin,
-  linkPlugin,
-  linkDialogPlugin,
-  imagePlugin,
-  codeBlockPlugin,
-  codeMirrorPlugin,
-  markdownShortcutPlugin,
-  tablePlugin,
-  diffSourcePlugin,
-  toolbarPlugin,
-  BoldItalicUnderlineToggles,
-  CodeToggle,
-  CreateLink,
-  ListsToggle,
-  BlockTypeSelect,
-  InsertImage,
-  InsertCodeBlock,
-  InsertTable,
-  InsertThematicBreak,
-  UndoRedo,
-  DiffSourceToggleWrapper,
-  ChangeCodeMirrorLanguage,
-  Separator,
-} from "@mdxeditor/editor";
-import {
+  AlertTriangle,
   Command,
   Image as ImageIcon,
   Loader2,
@@ -51,6 +23,7 @@ import {
 } from "lucide-react";
 import { useMDXComponents } from "@/mdx-components";
 import { SystemInput } from "@/components/ui/system-input";
+import PostMonacoEditor from "@/components/admin/post/monaco-editor";
 import type { AdminPost, AdminPostMetadata } from "@/lib/admin/posts";
 import type { PostActionState } from "../actions";
 import { updatePost } from "../actions";
@@ -218,6 +191,8 @@ export default function PostStudio({ post }: PostStudioProps) {
   const [PreviewComponent, setPreviewComponent] =
     useState<((props: { components?: Record<string, unknown> }) => ReactNode) | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewRetryKey, setPreviewRetryKey] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [assetLoading, setAssetLoading] = useState(false);
@@ -228,9 +203,10 @@ export default function PostStudio({ post }: PostStudioProps) {
   const [commandQuery, setCommandQuery] = useState("");
   const filePickerRef = useRef<HTMLInputElement>(null);
   const commandInputRef = useRef<HTMLInputElement>(null);
-  const editorRef = useRef<MDXEditorMethods | null>(null);
+  const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
   const mdxComponents = useMDXComponents({});
   const hydratedOnceRef = useRef(false);
+  const autosaveCheckedSlugRef = useRef<string | null>(null);
   const mountedRef = useRef(false);
 
   useEffect(() => {
@@ -263,6 +239,66 @@ export default function PostStudio({ post }: PostStudioProps) {
       }),
     [title, slug, date, description, tags, cover, content]
   );
+  const initialFingerprint = useMemo(
+    () =>
+      JSON.stringify({
+        title: post.metadata.title,
+        slug: post.slug,
+        date: post.metadata.date,
+        description: post.metadata.description,
+        tags: post.metadata.tags.join(", "),
+        cover: post.metadata.cover ?? "",
+        content: normalizeEditorMarkdown(post.content),
+      }),
+    [post]
+  );
+
+  const handleEditorDidMount = (editor: MonacoEditorNS.IStandaloneCodeEditor) => {
+    editorRef.current = editor;
+  };
+
+  function insertEditorSnippet(snippet: string) {
+    const editor = editorRef.current;
+    if (!editor) {
+      setContent((prev) => normalizeEditorMarkdown(`${prev}${snippet}`));
+      return;
+    }
+
+    const selection = editor.getSelection();
+    const model = editor.getModel();
+    if (!selection || !model) {
+      setContent((prev) => normalizeEditorMarkdown(`${prev}${snippet}`));
+      return;
+    }
+
+    editor.executeEdits("post-studio", [
+      {
+        range: selection,
+        text: snippet,
+        forceMoveMarkers: true,
+      },
+    ]);
+    editor.focus();
+    const next = normalizeEditorMarkdown(model.getValue());
+    if (next !== model.getValue()) {
+      editor.setValue(next);
+    }
+    setContent(next);
+  }
+
+  function formatPreviewError(error: unknown) {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === "string") {
+      return error;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Unknown preview error";
+    }
+  }
 
   useEffect(() => {
     setHasUnsavedChanges(
@@ -306,19 +342,21 @@ export default function PostStudio({ post }: PostStudioProps) {
         });
         if (!active) return;
         setPreviewComponent(() => result.default as typeof PreviewComponent);
-      } catch {
+        setPreviewError(null);
+      } catch (error) {
         if (!active) return;
-        setPreviewComponent(() => () => <p>Preview failed.</p>);
+        setPreviewComponent(null);
+        setPreviewError(formatPreviewError(error));
       } finally {
         if (active) setIsPreviewLoading(false);
       }
-    }, 350);
+    }, 1200);
 
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [content]);
+  }, [content, previewRetryKey]);
 
   async function loadAssets() {
     setAssetLoading(true);
@@ -336,6 +374,10 @@ export default function PostStudio({ post }: PostStudioProps) {
   }, [post.slug]);
 
   useEffect(() => {
+    if (autosaveCheckedSlugRef.current === post.slug) {
+      return;
+    }
+    autosaveCheckedSlugRef.current = post.slug;
     let active = true;
     void (async () => {
       const response = await fetch(`/admin/api/posts/${encodeURIComponent(post.slug)}/autosave`);
@@ -346,6 +388,7 @@ export default function PostStudio({ post }: PostStudioProps) {
       if (!active) return;
       const snapshot = data.snapshot;
       if (!snapshot) return;
+      const normalizedSnapshotContent = normalizeEditorMarkdown(snapshot.content);
       const snapshotKey = JSON.stringify({
         title: snapshot.metadata.title,
         slug: post.slug,
@@ -353,9 +396,9 @@ export default function PostStudio({ post }: PostStudioProps) {
         description: snapshot.metadata.description,
         tags: snapshot.metadata.tags.join(", "),
         cover: snapshot.metadata.cover ?? "",
-        content: snapshot.content,
+        content: normalizedSnapshotContent,
       });
-      if (snapshotKey === fingerprint) return;
+      if (snapshotKey === initialFingerprint) return;
 
       const shouldRestore = window.confirm(
         `Found autosave from ${new Date(snapshot.savedAt).toLocaleString()}. Restore it?`
@@ -367,15 +410,14 @@ export default function PostStudio({ post }: PostStudioProps) {
       setDescription(snapshot.metadata.description);
       setTags(snapshot.metadata.tags.join(", "));
       setCover(snapshot.metadata.cover ?? "");
-      const normalized = normalizeEditorMarkdown(snapshot.content);
-      setContent(normalized);
-      editorRef.current?.setMarkdown(normalized);
+      setContent(normalizedSnapshotContent);
+      editorRef.current?.setValue(normalizedSnapshotContent);
       setAutosaveAt(snapshot.savedAt);
     })();
     return () => {
       active = false;
     };
-  }, [post.slug, fingerprint]);
+  }, [post.slug, initialFingerprint]);
 
   useEffect(() => {
     if (!hydratedOnceRef.current) {
@@ -434,9 +476,8 @@ export default function PostStudio({ post }: PostStudioProps) {
     try {
       for (const file of list) {
         const url = await uploadFileToPost(file);
-        editorRef.current?.insertMarkdown(`![](${url})\n`);
+        insertEditorSnippet(`![](${url})\n`);
       }
-      setContent(normalizeEditorMarkdown(editorRef.current?.getMarkdown() ?? content));
       await loadAssets();
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Image upload failed.");
@@ -450,9 +491,9 @@ export default function PostStudio({ post }: PostStudioProps) {
       body: JSON.stringify({ name }),
     });
     const next = normalizeEditorMarkdown(
-      (editorRef.current?.getMarkdown() ?? "").replaceAll(`/posts/${post.slug}/${name}`, "")
+      (editorRef.current?.getValue() ?? "").replaceAll(`/posts/${post.slug}/${name}`, "")
     );
-    editorRef.current?.setMarkdown(next);
+    editorRef.current?.setValue(next);
     setContent(next);
     await loadAssets();
   }
@@ -468,23 +509,16 @@ export default function PostStudio({ post }: PostStudioProps) {
     if (!response.ok) return;
     const data = (await response.json()) as { oldUrl: string; newUrl: string };
     const next = normalizeEditorMarkdown(
-      (editorRef.current?.getMarkdown() ?? "").replaceAll(data.oldUrl, data.newUrl)
+      (editorRef.current?.getValue() ?? "").replaceAll(data.oldUrl, data.newUrl)
     );
-    editorRef.current?.setMarkdown(next);
+    editorRef.current?.setValue(next);
     setContent(next);
     await loadAssets();
   }
 
-  async function imageUploadHandler(file: File) {
-    const url = await uploadFileToPost(file);
-    await loadAssets();
-    return url;
-  }
-
   function runCommand(command: SlashCommand) {
     editorRef.current?.focus();
-    editorRef.current?.insertMarkdown(command.snippet);
-    setContent(normalizeEditorMarkdown(editorRef.current?.getMarkdown() ?? content));
+    insertEditorSnippet(command.snippet);
     setIsCommandOpen(false);
     setCommandQuery("");
   }
@@ -627,7 +661,7 @@ export default function PostStudio({ post }: PostStudioProps) {
           <div className="mt-3 flex-1 min-h-0">
             <div className="mb-2 flex items-center justify-between">
               <label className="block text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-                MDX Editor
+                Monaco Source Editor
               </label>
               <button
                 type="button"
@@ -650,7 +684,7 @@ export default function PostStudio({ post }: PostStudioProps) {
               />
             </div>
             <div
-              className="h-full min-h-[24rem] overflow-auto border border-border/60 bg-background/70"
+              className="h-[26rem] min-h-[20rem] overflow-hidden border border-border/60 bg-background/70 xl:h-[calc(100vh-24rem)] xl:max-h-[42rem]"
               onKeyDownCapture={(e) => {
                 if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
                   e.preventDefault();
@@ -675,122 +709,56 @@ export default function PostStudio({ post }: PostStudioProps) {
               }}
               onDragOver={(e) => e.preventDefault()}
             >
-              <MDXEditor
-                ref={editorRef}
-                markdown={normalizeEditorMarkdown(content)}
+              <PostMonacoEditor
+                value={normalizeEditorMarkdown(content)}
+                onMount={handleEditorDidMount}
                 onChange={(next) => {
                   if (!mountedRef.current) return;
                   setContent(normalizeEditorMarkdown(next));
                 }}
-                contentEditableClassName="prose prose-zinc dark:prose-invert max-w-none font-quicksand p-4 min-h-[20rem]"
-                plugins={[
-                  headingsPlugin(),
-                  listsPlugin(),
-                  quotePlugin(),
-                  thematicBreakPlugin(),
-                  markdownShortcutPlugin(),
-                  linkPlugin(),
-                  linkDialogPlugin(),
-                  tablePlugin(),
-                  codeBlockPlugin({ defaultCodeBlockLanguage: "txt" }),
-                  codeMirrorPlugin({
-                    codeBlockLanguages: {
-                      "": "Plain text",
-                      txt: "Plain text",
-                      text: "Plain text",
-                      md: "Markdown",
-                      markdown: "Markdown",
-                      mdx: "MDX",
-                      js: "JavaScript",
-                      jsx: "JavaScript React",
-                      ts: "TypeScript",
-                      tsx: "TypeScript React",
-                      json: "JSON",
-                      yaml: "YAML",
-                      yml: "YAML",
-                      toml: "TOML",
-                      xml: "XML",
-                      sh: "Shell",
-                      bash: "Bash",
-                      zsh: "Zsh",
-                      powershell: "PowerShell",
-                      ps1: "PowerShell",
-                      html: "HTML",
-                      css: "CSS",
-                      scss: "SCSS",
-                      sql: "SQL",
-                      python: "Python",
-                      py: "Python",
-                      rust: "Rust",
-                      go: "Go",
-                      java: "Java",
-                      c: "C",
-                      cpp: "C++",
-                      csharp: "C#",
-                      cs: "C#",
-                      php: "PHP",
-                      ruby: "Ruby",
-                      rb: "Ruby",
-                      swift: "Swift",
-                      kotlin: "Kotlin",
-                      kt: "Kotlin",
-                      dart: "Dart",
-                      mermaid: "Mermaid",
-                      "n/a": "Plain text",
-                      "N/A": "Plain text",
-                    },
-                  }),
-                  imagePlugin({
-                    imageUploadHandler,
-                  }),
-                  diffSourcePlugin({ viewMode: "rich-text" }),
-                  toolbarPlugin({
-                    toolbarContents: () => (
-                      <DiffSourceToggleWrapper
-                        options={["rich-text", "source"]}
-                        SourceToolbar={
-                          <>
-                            <ChangeCodeMirrorLanguage />
-                          </>
-                        }
-                      >
-                        <UndoRedo />
-                        <Separator />
-                        <BlockTypeSelect />
-                        <BoldItalicUnderlineToggles />
-                        <CodeToggle />
-                        <ListsToggle />
-                        <CreateLink />
-                        <InsertImage />
-                        <InsertCodeBlock />
-                        <InsertTable />
-                        <InsertThematicBreak />
-                      </DiffSourceToggleWrapper>
-                    ),
-                  }),
-                ]}
               />
             </div>
           </div>
         </section>
 
-        <section className="grid min-h-0 grid-rows-[minmax(0,1fr)_16rem] gap-4 border border-border/70 bg-background/30 p-4">
-          <div className="min-h-0">
+        <section className="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_16rem] gap-4 border border-border/70 bg-background/30 p-4">
+          <div className="flex min-h-0 min-w-0 flex-col">
             <div className="mb-2 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
               Live Preview {isPreviewLoading ? "(Rendering...)" : ""}
             </div>
-            <div className="h-full overflow-auto border border-border/60 bg-background/80 p-6">
-              <article className="prose prose-zinc dark:prose-invert max-w-none break-words font-quicksand">
-                {PreviewComponent ? (
-                  <PreviewComponent components={mdxComponents as Record<string, unknown>} />
-                ) : (
-                  <p>Start writing to preview.</p>
-                )}
-              </article>
+            <div className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-auto border border-border/60 bg-background/80 p-6">
+              {previewError ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-amber-300">
+                    <AlertTriangle size={14} />
+                    <p className="text-xs font-mono uppercase tracking-[0.12em]">
+                      Preview syntax error
+                    </p>
+                  </div>
+                  <pre className="overflow-auto border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-100 whitespace-pre-wrap break-words">
+                    {previewError}
+                  </pre>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewRetryKey((key) => key + 1)}
+                    className="inline-flex items-center gap-2 rounded-full border border-border/60 px-3 py-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground hover:border-primary/40 hover:text-primary"
+                  >
+                    Retry Preview
+                  </button>
+                </div>
+              ) : (
+                <article className="prose prose-zinc dark:prose-invert w-full min-w-0 max-w-full break-words font-quicksand prose-pre:max-w-full prose-pre:overflow-x-auto prose-code:break-words [&_*]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:w-full [&_table]:overflow-x-auto">
+                  {PreviewComponent ? (
+                    <PreviewComponent components={mdxComponents as Record<string, unknown>} />
+                  ) : (
+                    <p>Start writing to preview.</p>
+                  )}
+                </article>
+              )}
             </div>
           </div>
 
-          <div className="min-h-0 border border-border/60 bg-background/70 p-3">
+          <div className="flex min-h-0 min-w-0 flex-col border border-border/60 bg-background/70 p-3">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
                 Image Assets
@@ -803,7 +771,7 @@ export default function PostStudio({ post }: PostStudioProps) {
                 Refresh
               </button>
             </div>
-            <div className="h-[calc(100%-1.5rem)] overflow-auto space-y-2">
+            <div className="min-h-0 flex-1 overflow-auto space-y-2">
               {assetLoading ? (
                 <p className="text-xs text-muted-foreground">Loading assets...</p>
               ) : assets.length === 0 ? (
@@ -823,7 +791,7 @@ export default function PostStudio({ post }: PostStudioProps) {
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => editorRef.current?.insertMarkdown(`![](${asset.url})\n`)}
+                        onClick={() => insertEditorSnippet(`![](${asset.url})\n`)}
                         className="rounded border border-border/60 p-1 text-muted-foreground hover:text-primary"
                         aria-label={`Insert ${asset.name}`}
                       >

@@ -42,6 +42,7 @@ export default async function AdminResourcesPage() {
           Register_New_Asset
         </h3>
         <form action={createResource} className="grid gap-4 md:grid-cols-2">
+          <input type="hidden" name="redirect_to" value="/admin/resources" />
           <div className="space-y-2">
             <label className="text-[10px] font-mono uppercase text-muted-foreground">
               Title
@@ -166,6 +167,7 @@ export default async function AdminResourcesPage() {
                     <form key={status} action={updateResourceStatus}>
                       <input type="hidden" name="id" value={resource.id} />
                       <input type="hidden" name="status" value={status} />
+                      <input type="hidden" name="redirect_to" value="/admin/resources" />
                       <button className="rounded-full border border-border/60 px-3 py-1 text-[9px] font-mono uppercase text-muted-foreground hover:text-primary hover:border-primary/40 transition">
                         Set_{status}
                       </button>
@@ -179,6 +181,7 @@ export default async function AdminResourcesPage() {
                   </summary>
                   <form action={updateResource} className="mt-4 space-y-3">
                     <input type="hidden" name="id" value={resource.id} />
+                    <input type="hidden" name="redirect_to" value="/admin/resources" />
                     <div className="space-y-1">
                       <label className="text-[10px] font-mono uppercase text-muted-foreground">
                         Title
@@ -246,6 +249,7 @@ export default async function AdminResourcesPage() {
                   </form>
                   <form action={deleteResource} className="mt-3">
                     <input type="hidden" name="id" value={resource.id} />
+                    <input type="hidden" name="redirect_to" value="/admin/resources" />
                     <button
                       className="inline-flex items-center gap-2 text-[10px] font-mono uppercase text-red-300 hover:text-red-200 transition"
                       type="submit"

@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "title": "Reinventing the Digital Soul",
+    "date": "2024-01-15",
+    "description": "Why I chose ASCII art to represent my online identity.",
+    "tags": [
+      "Design",
+      "ASCII",
+      "Web3"
+    ],
+    "published": true
+  },
+  "content": "\r\n# Hello Presto\r\n\r\nHere is some regular text using **Quicksand**.\r\n\r\n## Code Block Example\r\n\r\n```txt\nimport { clsx, type ClassValue } from \"clsx\";\r\nimport { twMerge } from \"tailwind-merge\";\r\n\r\nexport function cn(...inputs: ClassValue[]) {\r\n  return twMerge(clsx(inputs));\r\n}\r\n```\n\r\n## Table Example\r\n\r\n| Syntax | Description |\r\n| ----------- | ----------- |\r\n| Header | Title |\r\n| Paragraph | Text |\r\n\r\n## Callout Example\r\n\r\n<Callout type=\"default\">\r\nThis is a default callout with some important information.\r\n</Callout>\r\n\r\n<Callout type=\"warning\">\r\nThis is a warning callout. Be careful!\r\n</Callout>\r\n",
+  "savedAt": "2026-02-10T12:22:34.113Z"
+}

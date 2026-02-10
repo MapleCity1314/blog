@@ -64,6 +64,7 @@ export function AboutDataForm({ initialData, action }: AboutDataFormProps) {
       action={action}
       className="space-y-10 border border-border/40 bg-background/20 p-6"
     >
+      <input type="hidden" name="redirect_to" value="/admin/settings" />
       <input type="hidden" name="about_json" value={aboutJson} readOnly />
 
       <Section title="Profile">

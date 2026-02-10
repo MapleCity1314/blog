@@ -2,33 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Mail, X } from "lucide-react";
+import { Loader2, ShieldCheck, X } from "lucide-react";
 import type { AccessStatus } from "@/components/friends/types";
 
 type AccessRequestModalProps = {
   accessStatus: AccessStatus;
   isOpen: boolean;
   onClose: () => void;
+  onAccessGranted: (token: string) => void;
 };
 
-export function AccessRequestModal({ accessStatus, isOpen, onClose }: AccessRequestModalProps) {
+export function AccessRequestModal({
+  accessStatus,
+  isOpen,
+  onClose,
+  onAccessGranted,
+}: AccessRequestModalProps) {
   const [isSending, setIsSending] = useState(false);
-  const [sentEmail, setSentEmail] = useState<string | null>(null);
+  const [isGranted, setIsGranted] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
-  const [devConfirmUrl, setDevConfirmUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setSentEmail(null);
+      setIsGranted(false);
       setRequestError(null);
-      setDevConfirmUrl(null);
     }
   }, [isOpen]);
 
   const requestAccess = async () => {
     setIsSending(true);
     setRequestError(null);
-    setDevConfirmUrl(null);
     try {
       const response = await fetch("/api/friends/access", { method: "POST" });
       if (!response.ok) {
@@ -36,9 +39,14 @@ export function AccessRequestModal({ accessStatus, isOpen, onClose }: AccessRequ
         setRequestError(data.error ?? "Request failed.");
         return;
       }
-      const data = (await response.json()) as { email?: string; devConfirmUrl?: string };
-      setSentEmail(data.email ?? "2702540295@qq.com");
-      setDevConfirmUrl(data.devConfirmUrl ?? null);
+      const data = (await response.json()) as { accessToken?: string };
+      const token = data.accessToken?.trim() || "";
+      if (!token) {
+        setRequestError("Request failed.");
+        return;
+      }
+      setIsGranted(true);
+      onAccessGranted(token);
     } catch {
       setRequestError("Request failed.");
     } finally {
@@ -73,11 +81,11 @@ export function AccessRequestModal({ accessStatus, isOpen, onClose }: AccessRequ
               <div className="flex justify-between items-start">
                 <div>
                   <h2 id="access-request-title" className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                    <Mail className="w-6 h-6 text-zinc-400" />
-                    Access Confirmation
+                    <ShieldCheck className="w-6 h-6 text-zinc-400" />
+                    Access Request
                   </h2>
                   <p className="text-xs font-mono text-zinc-500 mt-1 uppercase tracking-wider">
-                    // Email approval required
+                    // Direct backend grant
                   </p>
                 </div>
                 <button
@@ -90,8 +98,8 @@ export function AccessRequestModal({ accessStatus, isOpen, onClose }: AccessRequ
               </div>
 
               <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-300">
-                <p>To open the add link dialog, a confirmation email must be approved by 2702540295@qq.com.</p>
-                <p>We will send a secure link. Once it is approved, this page unlocks the form.</p>
+                <p>Request a one-time access token to open the add link dialog.</p>
+                <p>No email confirmation is required.</p>
               </div>
 
               {accessStatus.state === "approved" ? (
@@ -105,23 +113,15 @@ export function AccessRequestModal({ accessStatus, isOpen, onClose }: AccessRequ
                 </p>
               ) : null}
 
-              {sentEmail ? (
+              {isGranted ? (
                 <p className="text-sm text-emerald-600" aria-live="polite">
-                  Confirmation sent to {sentEmail}.
+                  Access granted. Opening the form…
                 </p>
               ) : null}
               {requestError ? (
                 <p className="text-sm text-rose-500" aria-live="polite">
                   {requestError}
                 </p>
-              ) : null}
-              {devConfirmUrl ? (
-                <div className="text-xs text-zinc-500">
-                  <p>Dev confirm URL:</p>
-                  <a className="break-all underline" href={devConfirmUrl}>
-                    {devConfirmUrl}
-                  </a>
-                </div>
               ) : null}
 
               <div className="flex gap-3 pt-2">
@@ -141,10 +141,10 @@ export function AccessRequestModal({ accessStatus, isOpen, onClose }: AccessRequ
                   {isSending ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      Send Confirmation{"\u2026"}
+                      Granting Access{"\u2026"}
                     </>
                   ) : (
-                    "Send Confirmation"
+                    "Request Access"
                   )}
                 </button>
               </div>

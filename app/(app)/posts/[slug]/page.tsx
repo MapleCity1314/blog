@@ -7,8 +7,10 @@ import { PostBodyFallback } from "@/components/posts/post-body-fallback";
 import { PostCover } from "@/components/posts/post-cover";
 import { PostDetailHeader } from "@/components/posts/post-detail-header";
 import { PostDivider } from "@/components/posts/post-divider";
+import { PostEngagementPanel } from "@/components/posts/post-engagement-panel";
 import { PostHeaderActions } from "@/components/posts/post-header-actions";
 import { PostTOC } from "@/components/posts/post-toc";
+import { getPostEngagementSnapshot, listPostComments } from "@/lib/post-engagement";
 import { getPostBySlugAsync, getPostSummaries } from "@/lib/posts";
 import { cn, getRandomCover } from "@/lib/utils";
 
@@ -28,6 +30,10 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
   const coverImage = post.metadata.cover || getRandomCover(slug);
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://icstudio.top";
   const postUrl = `${baseUrl}/posts/${slug}`;
+  const [engagement, comments] = await Promise.all([
+    getPostEngagementSnapshot(slug),
+    listPostComments(slug),
+  ]);
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden selection:bg-primary/30">
@@ -63,6 +69,15 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           <Suspense fallback={<PostBodyFallback />}>
             <PostBody slug={slug} content={post.content} />
           </Suspense>
+        </div>
+
+        <div className="mx-auto mt-12 max-w-3xl">
+          <PostEngagementPanel
+            slug={slug}
+            postUrl={postUrl}
+            initialEngagement={engagement}
+            initialComments={comments}
+          />
         </div>
       </main>
 

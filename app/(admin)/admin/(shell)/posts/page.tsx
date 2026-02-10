@@ -122,6 +122,7 @@ export default async function AdminPostsPage({
                       </Link>
                       <form action={removePost}>
                         <input type="hidden" name="slug" value={post.slug} />
+                        <input type="hidden" name="redirect_to" value="/admin/posts" />
                         <button
                           type="submit"
                           className="p-2 hover:text-red-500 transition-colors"

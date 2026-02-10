@@ -2,11 +2,13 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { db } from "@/lib/db";
 import { about as aboutTable } from "@/lib/db/schema";
 import type { AboutData } from "@/lib/data/about-types";
+import { buildAdminToastUrl } from "@/lib/admin/toast";
 
 const HISTORY_PATH = path.join(process.cwd(), "content", "about-history.json");
 
@@ -34,16 +36,31 @@ async function appendAboutHistory(snapshot: AboutData) {
 }
 
 export async function updateAboutRaw(formData: FormData) {
+  const redirectTo = String(formData.get("redirect_to") ?? "").trim() || "/admin/settings";
   const raw = String(formData.get("about_json") ?? "").trim();
   if (!raw) {
-    return;
+    redirect(
+      buildAdminToastUrl({
+        path: redirectTo,
+        type: "error",
+        message: "Save failed",
+        description: "About payload is empty.",
+      })
+    );
   }
 
   let parsed: AboutData;
   try {
     parsed = JSON.parse(raw) as AboutData;
   } catch {
-    throw new Error("Invalid JSON payload for About.");
+    redirect(
+      buildAdminToastUrl({
+        path: redirectTo,
+        type: "error",
+        message: "Save failed",
+        description: "Invalid JSON payload for About.",
+      })
+    );
   }
 
   const existing = await db
@@ -61,7 +78,15 @@ export async function updateAboutRaw(formData: FormData) {
       experiences: parsed.experiences,
       blog: parsed.blog,
     });
-    return;
+    revalidatePath("/about");
+    revalidatePath("/admin/settings");
+    redirect(
+      buildAdminToastUrl({
+        path: redirectTo,
+        type: "success",
+        message: "About data saved",
+      })
+    );
   }
 
   const current = await db
@@ -97,4 +122,12 @@ export async function updateAboutRaw(formData: FormData) {
     .where(eq(aboutTable.id, existing[0].id));
 
   revalidatePath("/about");
+  revalidatePath("/admin/settings");
+  redirect(
+    buildAdminToastUrl({
+      path: redirectTo,
+      type: "success",
+      message: "About data saved",
+    })
+  );
 }

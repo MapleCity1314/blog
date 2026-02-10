@@ -1,7 +1,7 @@
 import { AlertCircle, Globe, Link2, Mail, Shield } from "lucide-react";
-import { getFriendRequests } from "@/lib/friends/store";
+import { getFriendRequests, getFriends } from "@/lib/friends/store";
 import ActionButton from "./action-button";
-import { approveFriendRequest, rejectFriendRequest } from "./actions";
+import { approveFriendRequest, rejectFriendRequest, updateFriend } from "./actions";
 
 const formatter = new Intl.DateTimeFormat("en-US", {
   dateStyle: "medium",
@@ -15,6 +15,7 @@ function formatDate(value?: Date | null) {
 
 export default async function AdminFriendsPage() {
   const requests = await getFriendRequests();
+  const activeFriends = await getFriends();
   const pending = requests.filter((request) => request.status === "pending");
   const pendingAccess = pending.filter(
     (request) => !request.name && !request.url
@@ -78,14 +79,109 @@ export default async function AdminFriendsPage() {
                 <div className="flex items-center gap-3">
                   <form action={approveFriendRequest}>
                     <input type="hidden" name="id" value={request.id} />
+                    <input type="hidden" name="redirect_to" value="/admin/friends" />
                     <ActionButton label="Approve" />
                   </form>
                   <form action={rejectFriendRequest}>
                     <input type="hidden" name="id" value={request.id} />
+                    <input type="hidden" name="redirect_to" value="/admin/friends" />
                     <ActionButton label="Reject" variant="reject" />
                   </form>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-4">
+        <header className="flex items-center justify-between">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <Globe size={16} />
+            <h3 className="text-xs font-mono font-bold uppercase tracking-widest">
+              Active_Friends_Editable
+            </h3>
+          </div>
+          <span className="text-[10px] font-mono uppercase text-muted-foreground/60">
+            {activeFriends.length} total
+          </span>
+        </header>
+
+        {activeFriends.length === 0 ? (
+          <div className="border border-dashed border-border/60 bg-background/20 p-6 text-xs text-muted-foreground">
+            No active friends yet.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {activeFriends.map((friend) => (
+              <form
+                key={friend.id}
+                action={updateFriend}
+                className="space-y-3 border border-border/60 bg-background/20 p-4"
+              >
+                <input type="hidden" name="id" value={friend.id} />
+                <input type="hidden" name="redirect_to" value="/admin/friends" />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="space-y-1 text-[10px] font-mono uppercase text-muted-foreground">
+                    Name
+                    <input
+                      name="name"
+                      defaultValue={friend.name}
+                      required
+                      className="w-full border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    />
+                  </label>
+                  <label className="space-y-1 text-[10px] font-mono uppercase text-muted-foreground">
+                    Role
+                    <input
+                      name="role"
+                      defaultValue={friend.role}
+                      className="w-full border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    />
+                  </label>
+                  <label className="space-y-1 text-[10px] font-mono uppercase text-muted-foreground md:col-span-2">
+                    URL
+                    <input
+                      name="url"
+                      type="url"
+                      defaultValue={friend.url}
+                      required
+                      className="w-full border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    />
+                  </label>
+                  <label className="space-y-1 text-[10px] font-mono uppercase text-muted-foreground md:col-span-2">
+                    Avatar
+                    <input
+                      name="avatar"
+                      type="url"
+                      defaultValue={friend.avatar}
+                      required
+                      className="w-full border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    />
+                  </label>
+                  <label className="space-y-1 text-[10px] font-mono uppercase text-muted-foreground md:col-span-2">
+                    Description
+                    <textarea
+                      name="desc"
+                      rows={2}
+                      defaultValue={friend.desc}
+                      className="w-full resize-y border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    />
+                  </label>
+                  <label className="space-y-1 text-[10px] font-mono uppercase text-muted-foreground">
+                    Color
+                    <input
+                      name="color"
+                      defaultValue={friend.color}
+                      placeholder="#8b5cf6"
+                      className="w-full border border-border bg-background px-3 py-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    />
+                  </label>
+                </div>
+                <div className="flex items-center justify-end">
+                  <ActionButton label="Save" />
+                </div>
+              </form>
             ))}
           </div>
         )}
@@ -162,10 +258,12 @@ export default async function AdminFriendsPage() {
                 <div className="flex items-center gap-3">
                   <form action={approveFriendRequest}>
                     <input type="hidden" name="id" value={request.id} />
+                    <input type="hidden" name="redirect_to" value="/admin/friends" />
                     <ActionButton label="Approve" />
                   </form>
                   <form action={rejectFriendRequest}>
                     <input type="hidden" name="id" value={request.id} />
+                    <input type="hidden" name="redirect_to" value="/admin/friends" />
                     <ActionButton label="Reject" variant="reject" />
                   </form>
                 </div>

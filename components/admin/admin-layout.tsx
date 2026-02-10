@@ -19,6 +19,8 @@ import {
 import PageTransition from "@/components/page-transition";
 import { cn } from "@/lib/utils";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import Toaster from "@/components/ui/sonner";
+import AdminToastBridge from "@/components/admin/admin-toast-bridge";
 
 const NAV_ITEMS = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -191,6 +193,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
       ) : null}
+      <AdminToastBridge />
+      <Toaster />
     </div>
   );
 }
