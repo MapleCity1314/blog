@@ -63,7 +63,8 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
           className={cn(
             "max-w-3xl mx-auto",
             "font-quicksand font-medium leading-relaxed",
-            "prose prose-zinc dark:prose-invert"
+            "prose prose-zinc dark:prose-invert",
+            "[&_section[data-footnotes]]:mt-14"
           )}
         >
           <Suspense fallback={<PostBodyFallback />}>

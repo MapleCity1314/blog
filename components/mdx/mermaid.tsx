@@ -28,7 +28,7 @@ export default function Mermaid({ chart }: { chart: string }) {
   }, [chart]);
 
   return (
-    <div className="my-8 flex justify-center bg-background/50 p-4 rounded-lg border border-border overflow-x-auto">
+    <div className="my-12 flex justify-center bg-background/50 p-4 rounded-lg border border-border overflow-x-auto">
       <div className="mermaid" ref={ref}>
         {chart}
       </div>

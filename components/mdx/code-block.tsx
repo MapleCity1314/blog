@@ -44,7 +44,7 @@ export default function CodeBlock({
   }, []);
 
   return (
-    <div className="group relative my-6 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#0d0d0d] shadow-sm">
+    <div className="group relative my-12 overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800 bg-[#0d0d0d] text-left shadow-sm">
       {/* 头部：极简设计，与背景融合，仅通过细微边框分隔 */}
       <div className="flex items-center justify-between border-b border-white/5 bg-white/5 px-3 py-2 text-xs text-zinc-400 backdrop-blur-sm transition-colors sm:px-4">
 
@@ -90,7 +90,7 @@ export default function CodeBlock({
           className={cn(
             // 强制背景为透明，因为外层容器已经有背景颜色了
             "!bg-transparent !p-0 !m-0",
-            "overflow-x-auto p-3 text-[13px] leading-6 text-zinc-300 sm:p-4 sm:text-sm",
+            "overflow-x-auto p-3 text-left text-[13px] leading-6 text-zinc-300 sm:p-4 sm:text-sm",
             // ... 其他类
             className
           )}

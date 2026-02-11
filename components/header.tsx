@@ -14,7 +14,7 @@ const navItems = [
   { label: "Resources", href: "/resources" },
   { label: "Friends", href: "/friends" },
   { label: "About", href: "/about" },
-  { label: "Try u0", href: "http://icstudio.top/chat", target: "_blank", special: true },
+  { label: "Try u0", href: "/chat/preview", special: true },
 ];
 
 type SearchResult = {

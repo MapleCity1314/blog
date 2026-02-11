@@ -26,7 +26,7 @@ function Callout({
 
   return (
     <div className={cn(
-      "my-6 flex flex-col rounded-lg border px-4 py-3 text-sm shadow-sm sm:flex-row sm:gap-3", 
+      "my-10 flex flex-col rounded-lg border px-4 py-3 text-sm shadow-sm sm:my-12 sm:flex-row sm:gap-3", 
       // 根据类型设置极简的颜色风格 (背景色极淡，边框微弱)
       type === "default" && "border-blue-200 bg-blue-50/50 text-blue-900 dark:border-blue-900/30 dark:bg-blue-950/20 dark:text-blue-200",
       type === "warning" && "border-amber-200 bg-amber-50/50 text-amber-900 dark:border-amber-900/30 dark:bg-amber-950/20 dark:text-amber-200",
@@ -63,7 +63,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 
     // 2. 正文与排版：增加阅读舒适度
     p: ({ className, ...props }) => (
-      <p className={cn("leading-7 [&:not(:first-child)]:mt-6 font-sans text-zinc-700 dark:text-zinc-300", className)} {...props} />
+      <p className={cn("leading-8 [&:not(:first-child)]:mt-8 font-sans text-zinc-700 dark:text-zinc-300", className)} {...props} />
     ),
     ul: ({ className, ...props }) => (
       <ul className={cn("my-6 ml-6 list-disc [&>li]:mt-2 font-sans text-zinc-700 dark:text-zinc-300", className)} {...props} />
@@ -72,9 +72,9 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       <ol className={cn("my-6 ml-6 list-decimal [&>li]:mt-2 font-sans text-zinc-700 dark:text-zinc-300", className)} {...props} />
     ),
     blockquote: ({ className, ...props }) => (
-      <blockquote className={cn("mt-6 border-l-2 border-zinc-300 pl-6 italic text-zinc-600 dark:border-zinc-700 dark:text-zinc-400 font-serif", className)} {...props} />
+      <blockquote className={cn("my-10 border-l-2 border-zinc-300 pl-6 italic text-zinc-600 dark:border-zinc-700 dark:text-zinc-400 font-serif", className)} {...props} />
     ),
-    hr: ({ ...props }) => <hr className="my-8 border-zinc-200 dark:border-zinc-800" {...props} />,
+    hr: ({ ...props }) => <hr className="my-12 border-zinc-200 dark:border-zinc-800" {...props} />,
 
     // 3. 链接优化：区分内链外链，增加移动端点击热区
     a: ({ className, href, ...props }) => {
@@ -93,7 +93,12 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       // 但加上了 rounded 和 shadow 提升观感
       // eslint-disable-next-line @next/next/no-img-element
       <img 
-        className={cn("my-8 h-auto w-full rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm", className)} 
+        className={cn(
+          "my-20 h-auto w-full max-w-none rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm",
+          "md:w-[112%] md:max-w-[112%] md:-ml-[6%]",
+          "lg:w-[124%] lg:max-w-[124%] lg:-ml-[12%]",
+          className
+        )}
         alt={alt} 
         {...props} 
       />
@@ -150,11 +155,37 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       
       // 非代码块的普通 pre（极少情况）
       return (
-        <pre className={cn("my-6 overflow-x-auto rounded-lg bg-zinc-100 p-4 font-mono text-sm dark:bg-zinc-900", className)} {...props}>
+        <pre className={cn("my-10 overflow-x-auto rounded-lg bg-zinc-100 p-4 font-mono text-sm dark:bg-zinc-900", className)} {...props}>
           {children}
         </pre>
       );
     },
+
+    iframe: ({ className, title, ...props }) => (
+      <iframe
+        title={title ?? "Embedded content"}
+        className={cn("block my-16 w-full min-h-[420px] rounded-lg border border-zinc-200 dark:border-zinc-800", className)}
+        {...props}
+      />
+    ),
+    figure: ({ className, ...props }: any) => {
+      const isCodeFigure = Boolean(props?.["data-rehype-pretty-code-figure"]);
+      return (
+        <figure
+          className={cn(
+            isCodeFigure ? "my-16 !text-left" : "mx-auto my-16 text-center",
+            className
+          )}
+          {...props}
+        />
+      );
+    },
+    figcaption: ({ className, ...props }) => (
+      <figcaption
+        className={cn("mt-4 text-sm text-muted-foreground", className)}
+        {...props}
+      />
+    ),
 
     // 注册自定义组件
     Callout,

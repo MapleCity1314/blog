@@ -74,7 +74,7 @@ export default function U0ComingSoonPage() {
   ];
 
   return (
-    <main className="relative w-full min-h-[80vh] flex flex-col items-center justify-center bg-white dark:bg-black overflow-hidden">
+    <main className="relative h-full w-full flex flex-col items-center justify-center bg-white dark:bg-black overflow-hidden">
       {/* 磨砂背景 */}
       <FrostedBackground />
 
@@ -89,7 +89,7 @@ export default function U0ComingSoonPage() {
           className="mb-12"
         >
           <span className="text-[10px] font-mono tracking-[0.5em] uppercase dark:text-white text-black">
-             System Preview
+             u0 Preview
           </span>
         </motion.div>
 
