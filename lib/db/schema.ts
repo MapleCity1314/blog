@@ -35,6 +35,10 @@ export const resourceStatus = pgEnum("resource_status", [
   "published",
   "archived",
 ]);
+export const engagementVoteAction = pgEnum("engagement_vote_action", [
+  "like",
+  "dislike",
+]);
 
 export const users = pgTable(
   "users",
@@ -105,6 +109,30 @@ export const postMetrics = pgTable(
   },
   (table) => ({
     pk: primaryKey({ columns: [table.postId] }),
+  })
+);
+
+export const postEngagementVotes = pgTable(
+  "post_engagement_votes",
+  {
+    postId: uuid("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    voterHash: text("voter_hash").notNull(),
+    action: engagementVoteAction("action").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.postId, table.voterHash] }),
+    postActionIndex: index("post_engagement_votes_post_action_idx").on(
+      table.postId,
+      table.action
+    ),
   })
 );
 

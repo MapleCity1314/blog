@@ -4,3 +4,4 @@ COPY scripts/db/init/00-extensions.sql /docker-entrypoint-initdb.d/00-extensions
 COPY drizzle/0000_harsh_callisto.sql /docker-entrypoint-initdb.d/10-schema-0000.sql
 COPY drizzle/0001_crazy_donald_blake.sql /docker-entrypoint-initdb.d/11-schema-0001.sql
 COPY drizzle/0002_ordinary_boomerang.sql /docker-entrypoint-initdb.d/12-schema-0002.sql
+COPY drizzle/0003_breezy_vote_lock.sql /docker-entrypoint-initdb.d/13-schema-0003.sql

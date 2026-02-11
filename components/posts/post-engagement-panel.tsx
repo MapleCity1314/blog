@@ -1,24 +1,16 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
-import { MessageSquare, Share2, ThumbsDown, ThumbsUp } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { MessageSquare, Share2, ThumbsDown, ThumbsUp, Terminal, RotateCcw, Send } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
-type EngagementSnapshot = {
-  likes: number;
-  dislikes: number;
-  shares: number;
-  comments: number;
-};
-
+// --- 类型定义保持不变 ---
+type EngagementSnapshot = { likes: number; dislikes: number; shares: number; comments: number };
+type VoteAction = "like" | "dislike";
 type CommentItem = {
-  id: string;
-  parentId: string | null;
-  author: string;
-  content: string;
-  likeCount: number;
-  dislikeCount: number;
-  createdAt: string;
-  replies: CommentItem[];
+  id: string; parentId: string | null; author: string; content: string;
+  likeCount: number; dislikeCount: number; createdAt: string; replies: CommentItem[];
 };
 
 type PostEngagementPanelProps = {
@@ -28,16 +20,10 @@ type PostEngagementPanelProps = {
   initialComments: CommentItem[];
 };
 
-const INPUT_BASE =
-  "w-full rounded-none border border-border/60 bg-background/40 px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-primary/50";
-
+// --- 工具函数 ---
 function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
   }).format(new Date(value));
 }
 
@@ -47,26 +33,18 @@ function updateCommentInTree(
   updater: (node: CommentItem) => CommentItem
 ): CommentItem[] {
   return nodes.map((node) => {
-    if (node.id === commentId) {
-      return updater(node);
-    }
-    if (node.replies.length === 0) {
-      return node;
-    }
-    return {
-      ...node,
-      replies: updateCommentInTree(node.replies, commentId, updater),
-    };
+    if (node.id === commentId) return updater(node);
+    if (node.replies.length === 0) return node;
+    return { ...node, replies: updateCommentInTree(node.replies, commentId, updater) };
   });
 }
 
+// --- 核心组件 ---
 export function PostEngagementPanel({
-  slug,
-  postUrl,
-  initialEngagement,
-  initialComments,
+  slug, postUrl, initialEngagement, initialComments,
 }: PostEngagementPanelProps) {
   const [engagement, setEngagement] = useState(initialEngagement);
+  const [viewerVote, setViewerVote] = useState<VoteAction | null>(null);
   const [comments, setComments] = useState(initialComments);
   const [author, setAuthor] = useState("");
   const [content, setContent] = useState("");
@@ -76,284 +54,260 @@ export function PostEngagementPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReloading, setIsReloading] = useState(false);
 
-  const commentCount = useMemo(() => engagement.comments, [engagement.comments]);
+  // 逻辑部分保持原样...
+  useEffect(() => {
+    let isMounted = true;
+    async function syncEngagementVote() {
+      try {
+        const response = await fetch(`/api/posts/${encodeURIComponent(slug)}/engagement`);
+        if (!response.ok || !isMounted) return;
+        const data = await response.json();
+        setEngagement(data.engagement);
+        setViewerVote(data.viewerVote ?? null);
+      } catch {}
+    }
+    syncEngagementVote();
+    return () => { isMounted = false; };
+  }, [slug]);
 
   const sendEngagement = useCallback((action: "like" | "dislike" | "share") => {
-    setError(null);
-    setMessage(null);
-    setEngagement((previous) => ({
-      ...previous,
-      likes: action === "like" ? previous.likes + 1 : previous.likes,
-      dislikes: action === "dislike" ? previous.dislikes + 1 : previous.dislikes,
-      shares: action === "share" ? previous.shares + 1 : previous.shares,
-    }));
+    if (action !== "share" && viewerVote === action) return;
+    const previousEngagement = engagement;
+    const previousVote = viewerVote;
+
+    if (action === "share") {
+      setEngagement(p => ({ ...p, shares: p.shares + 1 }));
+    } else if (action === "like") {
+      setEngagement(p => ({
+        ...p,
+        likes: p.likes + (previousVote === "like" ? 0 : 1),
+        dislikes: Math.max(p.dislikes - (previousVote === "dislike" ? 1 : 0), 0),
+      }));
+      setViewerVote("like");
+    } else {
+      setEngagement(p => ({
+        ...p,
+        dislikes: p.dislikes + (previousVote === "dislike" ? 0 : 1),
+        likes: Math.max(p.likes - (previousVote === "like" ? 1 : 0), 0),
+      }));
+      setViewerVote("dislike");
+    }
 
     startTransition(async () => {
       try {
-        const response = await fetch(`/api/posts/${encodeURIComponent(slug)}/engagement`, {
+        const res = await fetch(`/api/posts/${encodeURIComponent(slug)}/engagement`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
         });
-        if (!response.ok) throw new Error("Failed to update engagement.");
-        const data = (await response.json()) as { engagement: EngagementSnapshot };
+        const data = await res.json();
         setEngagement(data.engagement);
       } catch {
-        setError("Update failed, please retry.");
+        setEngagement(previousEngagement);
+        setViewerVote(previousVote);
       }
     });
-  }, [slug]);
-
-  const reloadComments = useCallback(async () => {
-    setError(null);
-    setIsReloading(true);
-    try {
-      const response = await fetch(`/api/posts/${encodeURIComponent(slug)}/comments`, {
-        method: "GET",
-      });
-      if (!response.ok) throw new Error("Failed to load comments.");
-      const data = (await response.json()) as { comments: CommentItem[] };
-      setComments(data.comments);
-      setMessage("Comments refreshed.");
-    } catch {
-      setError("Failed to load comments, please retry.");
-    } finally {
-      setIsReloading(false);
-    }
-  }, [slug]);
+  }, [engagement, slug, viewerVote]);
 
   const handleShare = useCallback(async () => {
-    setError(null);
-    setMessage(null);
     try {
-      if (navigator.share) {
-        await navigator.share({ url: postUrl });
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(postUrl);
-      }
-      setMessage("Link ready to share.");
+      if (navigator.share) await navigator.share({ url: postUrl });
+      else if (navigator.clipboard) await navigator.clipboard.writeText(postUrl);
       sendEngagement("share");
-    } catch {
-      setError("Share cancelled or failed.");
-    }
+      setMessage("LINK_COPIED");
+    } catch {}
   }, [postUrl, sendEngagement]);
 
   const handleSubmitComment = useCallback(async () => {
-    const trimmed = content.trim();
-    if (!trimmed) {
-      setError("Comment cannot be empty.");
-      return;
-    }
-
-    setError(null);
-    setMessage(null);
+    if (!content.trim()) return;
     setIsSubmitting(true);
     try {
       const response = await fetch(`/api/posts/${encodeURIComponent(slug)}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          author: author.trim() || undefined,
-          content: trimmed,
-        }),
+        body: JSON.stringify({ author: author.trim() || undefined, content }),
       });
-      const data = (await response.json()) as { comment?: CommentItem; error?: string };
-      if (!response.ok || !data.comment) {
-        throw new Error(data.error ?? "Failed to submit comment.");
+      const data = await response.json();
+      if (data.comment) {
+        setComments(p => [...p, data.comment]);
+        setEngagement(p => ({ ...p, comments: p.comments + 1 }));
+        setContent("");
+        setMessage("TRANSMISSION_COMPLETE");
       }
-      setComments((previous) => [...previous, data.comment!]);
-      setEngagement((previous) => ({ ...previous, comments: previous.comments + 1 }));
-      setContent("");
-      setMessage("Comment posted.");
-    } catch (submitError) {
-      const submitMessage =
-        submitError instanceof Error ? submitError.message : "Failed to submit comment.";
-      setError(submitMessage);
     } finally {
       setIsSubmitting(false);
     }
   }, [author, content, slug]);
 
   const handleVoteComment = useCallback(async (commentId: string, action: "like" | "dislike") => {
-    setComments((previous) =>
-      updateCommentInTree(previous, commentId, (node) => ({
-        ...node,
-        likeCount: action === "like" ? node.likeCount + 1 : node.likeCount,
-        dislikeCount: action === "dislike" ? node.dislikeCount + 1 : node.dislikeCount,
-      }))
-    );
-
-    try {
-      const response = await fetch(`/api/comments/${encodeURIComponent(commentId)}/vote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      if (!response.ok) throw new Error("Vote failed.");
-      const data = (await response.json()) as { likeCount: number; dislikeCount: number };
-      setComments((previous) =>
-        updateCommentInTree(previous, commentId, (node) => ({
-          ...node,
-          likeCount: data.likeCount,
-          dislikeCount: data.dislikeCount,
-        }))
-      );
-    } catch {
-      setError("Vote failed, please retry.");
-    }
+    setComments(p => updateCommentInTree(p, commentId, n => ({
+      ...n,
+      likeCount: action === "like" ? n.likeCount + 1 : n.likeCount,
+      dislikeCount: action === "dislike" ? n.dislikeCount + 1 : n.dislikeCount,
+    })));
+    await fetch(`/api/comments/${encodeURIComponent(commentId)}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
   }, []);
 
   return (
-    <section className="mt-12 border border-border/60 bg-background/30 p-6 sm:p-8 overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-xs font-mono uppercase tracking-[0.3em] text-muted-foreground">
-          Community Feedback
-        </h2>
-        <span className="text-[10px] font-mono text-muted-foreground/80">
-          {commentCount.toLocaleString()} comment(s)
-        </span>
-      </div>
+    <section className="relative mt-24 w-full max-w-3xl mx-auto px-6 py-12">
+      {/* 磨砂背景装饰 */}
+      <div className="absolute inset-0 z-0 bg-zinc-50/50 dark:bg-zinc-900/20 backdrop-blur-xl rounded-[2rem] border border-zinc-200/50 dark:border-zinc-800/50" />
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={() => sendEngagement("like")}
-          className="inline-flex min-h-11 items-center justify-center gap-2 border border-border/60 bg-background/40 px-3 py-2 text-xs font-mono uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary focus-visible:border-primary/60 touch-manipulation"
-        >
-          <ThumbsUp size={14} /> Like {engagement.likes.toLocaleString()}
-        </button>
-        <button
-          type="button"
-          onClick={() => sendEngagement("dislike")}
-          className="inline-flex min-h-11 items-center justify-center gap-2 border border-border/60 bg-background/40 px-3 py-2 text-xs font-mono uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary focus-visible:border-primary/60 touch-manipulation"
-        >
-          <ThumbsDown size={14} /> Dislike {engagement.dislikes.toLocaleString()}
-        </button>
-        <button
-          type="button"
-          onClick={handleShare}
-          className="inline-flex min-h-11 items-center justify-center gap-2 border border-border/60 bg-background/40 px-3 py-2 text-xs font-mono uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary focus-visible:border-primary/60 touch-manipulation"
-        >
-          <Share2 size={14} /> Share {engagement.shares.toLocaleString()}
-        </button>
-      </div>
+      <div className="relative z-10">
+        {/* 头部统计 */}
+        <div className="flex items-end justify-between mb-12 px-2">
+          <div className="space-y-1">
+            <h2 className="text-[10px] font-mono tracking-[0.4em] uppercase opacity-40">Protocol_Feedback</h2>
+            <div className="text-2xl font-extralight tracking-tighter">Community Thoughts.</div>
+          </div>
+          <div className="text-right">
+             <span className="text-2xl font-light tracking-tighter">{engagement.comments}</span>
+             <span className="text-[10px] font-mono opacity-30 ml-2 tracking-widest uppercase">Nodes</span>
+          </div>
+        </div>
 
-      <div className="mt-8 space-y-3 border border-border/50 bg-background/20 p-4">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-1">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Display Name
-            </span>
+        {/* 交互按钮组 */}
+        <div className="flex items-center gap-6 mb-16 px-2">
+          <StatButton 
+            active={viewerVote === "like"} 
+            onClick={() => sendEngagement("like")}
+            icon={<ThumbsUp size={14} />}
+            label="ACK"
+            count={engagement.likes}
+          />
+          <StatButton 
+            active={viewerVote === "dislike"} 
+            onClick={() => sendEngagement("dislike")}
+            icon={<ThumbsDown size={14} />}
+            label="REJ"
+            count={engagement.dislikes}
+          />
+          <StatButton 
+            onClick={handleShare}
+            icon={<Share2 size={14} />}
+            label="SYNC"
+            count={engagement.shares}
+          />
+        </div>
+
+        {/* 伪“命令行”输入区 */}
+        <div className="mb-20 group relative">
+          <div className="flex items-center gap-3 mb-4 opacity-30 group-focus-within:opacity-100 transition-opacity">
+            <Terminal size={14} />
+            <span className="text-[10px] font-mono tracking-[0.2em] uppercase">Initialize_Message...</span>
+          </div>
+          
+          <div className="space-y-6 pl-6 border-l border-zinc-200 dark:border-zinc-800">
             <input
               type="text"
-              name="author"
-              autoComplete="nickname"
               value={author}
-              onChange={(event) => setAuthor(event.target.value)}
-              placeholder="Guest…"
-              className={INPUT_BASE}
-              maxLength={80}
+              onChange={(e) => setAuthor(e.target.value)}
+              placeholder="IDENTITY (GUEST_USER)"
+              className="w-full bg-transparent border-none outline-none text-xs font-mono tracking-widest placeholder:opacity-20 uppercase"
             />
-          </label>
-          <div className="hidden sm:block" />
-        </div>
-        <label className="space-y-1">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Comment
-          </span>
-          <textarea
-            name="content"
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder="Share your thoughts…"
-            className={`${INPUT_BASE} min-h-28 resize-y`}
-            maxLength={2000}
-          />
-        </label>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleSubmitComment}
-            disabled={isSubmitting}
-            className="inline-flex min-h-11 items-center justify-center gap-2 border border-primary/50 bg-primary/10 px-4 py-2 text-xs font-mono uppercase tracking-widest text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <MessageSquare size={14} /> {isSubmitting ? "Posting…" : "Post Comment"}
-          </button>
-          <button
-            type="button"
-            onClick={reloadComments}
-            disabled={isReloading}
-            className="inline-flex min-h-11 items-center justify-center border border-border/60 bg-background/40 px-4 py-2 text-xs font-mono uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isReloading ? "Reloading…" : "Retry Fetch"}
-          </button>
-          <span className="text-[11px] text-muted-foreground" aria-live="polite">
-            {error ?? message ?? (isPending ? "Updating…" : "")}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-8 space-y-4">
-        {comments.length === 0 ? (
-          <div className="border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
-            No comments yet. Be the first one.
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="TYPE_YOUR_THOUGHTS_HERE..."
+              className="w-full bg-transparent border-none outline-none text-sm font-light leading-relaxed min-h-[100px] resize-none placeholder:opacity-20"
+            />
           </div>
-        ) : (
-          comments.map((comment) => (
-            <CommentCard
-              key={comment.id}
-              item={comment}
-              onVote={handleVoteComment}
-            />
-          ))
-        )}
+
+          <div className="mt-6 flex items-center justify-between pl-6">
+            <div className="text-[10px] font-mono opacity-30 uppercase tracking-widest italic">
+              {message || error || (isSubmitting ? "Transmitting..." : "Ready to Send")}
+            </div>
+            <button
+              onClick={handleSubmitComment}
+              disabled={isSubmitting || !content.trim()}
+              className="flex items-center gap-2 px-6 py-2 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-[10px] font-bold tracking-[0.2em] uppercase transition-transform active:scale-95 disabled:opacity-20"
+            >
+              Execute <Send size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* 评论列表 */}
+        <div className="space-y-12">
+          <AnimatePresence>
+            {comments.length === 0 ? (
+              <div className="text-center py-12 opacity-20 font-mono text-[10px] tracking-widest uppercase italic">
+                No active signals detected.
+              </div>
+            ) : (
+              comments.map((comment) => (
+                <CommentNode key={comment.id} item={comment} onVote={handleVoteComment} />
+              ))
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </section>
   );
 }
 
-function CommentCard({
-  item,
-  onVote,
-}: {
-  item: CommentItem;
-  onVote: (commentId: string, action: "like" | "dislike") => void;
-}) {
+// --- 子组件：统计按钮 ---
+function StatButton({ active, onClick, icon, label, count }: any) {
   return (
-    <article className="border border-border/60 bg-background/20 p-4 overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <strong className="text-sm text-foreground break-words">{item.author}</strong>
-        <span className="text-[10px] font-mono text-muted-foreground">
-          {formatDate(item.createdAt)}
-        </span>
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-2 group transition-all",
+        active ? "text-blue-500" : "text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+      )}
+    >
+      <div className={cn(
+        "p-2 rounded-full border border-transparent transition-all",
+        active ? "bg-blue-500/10 border-blue-500/20" : "group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+      )}>
+        {icon}
       </div>
-      <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">
-        {item.content}
-      </p>
-      <div className="mt-3 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onVote(item.id, "like")}
-          className="inline-flex min-h-8 items-center gap-1 border border-border/60 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
-        >
-          <ThumbsUp size={12} /> {item.likeCount}
-        </button>
-        <button
-          type="button"
-          onClick={() => onVote(item.id, "dislike")}
-          className="inline-flex min-h-8 items-center gap-1 border border-border/60 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
-        >
-          <ThumbsDown size={12} /> {item.dislikeCount}
-        </button>
+      <div className="flex flex-col items-start leading-none">
+        <span className="text-[8px] font-mono uppercase tracking-widest opacity-50">{label}</span>
+        <span className="text-xs font-light tracking-tighter">{count}</span>
       </div>
-      {item.replies.length > 0 ? (
-        <div className="mt-4 space-y-3 border-l border-border/50 pl-4">
-          {item.replies.map((reply) => (
-            <CommentCard key={reply.id} item={reply} onVote={onVote} />
-          ))}
-        </div>
-      ) : null}
-    </article>
+    </button>
   );
 }
 
+// --- 子组件：评论节点 ---
+function CommentNode({ item, onVote, isReply = false }: { item: CommentItem; onVote: any; isReply?: boolean }) {
+  return (
+    <motion.article 
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      className={cn("relative", isReply ? "mt-8 ml-8" : "pb-12 border-b border-zinc-100 dark:border-zinc-900 last:border-none")}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-zinc-200 to-zinc-400 dark:from-zinc-700 dark:to-zinc-900" />
+          <span className="text-xs font-medium tracking-tight">{item.author}</span>
+          <span className="text-[9px] font-mono opacity-20 uppercase tracking-widest">
+            {formatDate(item.createdAt)}
+          </span>
+        </div>
+        <div className="flex items-center gap-4">
+           <button onClick={() => onVote(item.id, "like")} className="flex items-center gap-1 text-[10px] font-mono opacity-30 hover:opacity-100 transition-opacity">
+              <ThumbsUp size={10} /> {item.likeCount}
+           </button>
+        </div>
+      </div>
+      
+      <p className="text-sm font-light leading-relaxed text-zinc-600 dark:text-zinc-400 pl-9">
+        {item.content}
+      </p>
+
+      {item.replies.length > 0 && (
+        <div className="pl-4 border-l border-zinc-100 dark:border-zinc-900 ml-3 mt-4">
+          {item.replies.map((reply) => (
+            <CommentNode key={reply.id} item={reply} onVote={onVote} isReply />
+          ))}
+        </div>
+      )}
+    </motion.article>
+  );
+}

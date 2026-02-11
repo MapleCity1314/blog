@@ -1,11 +1,13 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { comments, postMetrics, posts } from "@/lib/db/schema";
+import { comments, postEngagementVotes, postMetrics, posts } from "@/lib/db/schema";
 import { getPostMetadataBySlug } from "@/lib/posts";
 
 export type EngagementAction = "like" | "dislike" | "share";
+export type EngagementVoteAction = "like" | "dislike";
 export type CommentVoteAction = "like" | "dislike";
 
 export type PostEngagementSnapshot = {
@@ -13,6 +15,11 @@ export type PostEngagementSnapshot = {
   dislikes: number;
   shares: number;
   comments: number;
+};
+
+export type PostEngagementResult = {
+  engagement: PostEngagementSnapshot;
+  viewerVote: EngagementVoteAction | null;
 };
 
 export type PostCommentItem = {
@@ -32,6 +39,27 @@ const MAX_AUTHOR_LENGTH = 80;
 
 function normalizeSlug(slug: string) {
   return slug.trim().toLowerCase();
+}
+
+function normalizeVoterIdentity(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function getVoteHash(voterIdentity: string | null | undefined) {
+  const normalized = normalizeVoterIdentity(voterIdentity);
+  if (!normalized) return null;
+
+  const secret = process.env.ENGAGEMENT_VOTE_SALT ?? "blog-engagement-v1";
+  return createHash("sha256")
+    .update(`${secret}:${normalized}`)
+    .digest("hex");
+}
+
+function isMissingVoteTableError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const dbError = error as { code?: string; message?: string };
+  if (dbError.code !== "42P01") return false;
+  return (dbError.message ?? "").includes("post_engagement_votes");
 }
 
 function normalizeCommentContent(content: string) {
@@ -132,41 +160,253 @@ export async function getPostEngagementSnapshot(slug: string): Promise<PostEngag
   return toEngagementSnapshot(rows[0]);
 }
 
-export async function incrementPostEngagement(
-  slug: string,
-  action: EngagementAction
-): Promise<PostEngagementSnapshot> {
-  const postId = await resolveOrCreatePost(slug);
+export async function getPostEngagementForViewer(input: {
+  slug: string;
+  voterIdentity?: string | null;
+}): Promise<PostEngagementResult> {
+  const postId = await resolveOrCreatePost(input.slug);
   await ensurePostMetricsRow(postId);
 
-  const setClause =
-    action === "like"
-      ? {
-          likeCount: sql`${postMetrics.likeCount} + 1`,
-          updatedAt: sql`now()`,
-        }
-      : action === "dislike"
-        ? {
-            dislikeCount: sql`${postMetrics.dislikeCount} + 1`,
-            updatedAt: sql`now()`,
-          }
-        : {
-            shareCount: sql`${postMetrics.shareCount} + 1`,
-            updatedAt: sql`now()`,
-          };
-
-  const rows = await db
-    .update(postMetrics)
-    .set(setClause)
-    .where(eq(postMetrics.postId, postId))
-    .returning({
+  const [metricsRow] = await db
+    .select({
       likeCount: postMetrics.likeCount,
       dislikeCount: postMetrics.dislikeCount,
       shareCount: postMetrics.shareCount,
       commentCount: postMetrics.commentCount,
-    });
+    })
+    .from(postMetrics)
+    .where(eq(postMetrics.postId, postId))
+    .limit(1);
 
-  return toEngagementSnapshot(rows[0]);
+  const voteHash = getVoteHash(input.voterIdentity);
+  if (!voteHash) {
+    return { engagement: toEngagementSnapshot(metricsRow), viewerVote: null };
+  }
+
+  try {
+    const [voteRow] = await db
+      .select({ action: postEngagementVotes.action })
+      .from(postEngagementVotes)
+      .where(and(eq(postEngagementVotes.postId, postId), eq(postEngagementVotes.voterHash, voteHash)))
+      .limit(1);
+
+    return {
+      engagement: toEngagementSnapshot(metricsRow),
+      viewerVote: voteRow?.action ?? null,
+    };
+  } catch (error) {
+    if (isMissingVoteTableError(error)) {
+      return { engagement: toEngagementSnapshot(metricsRow), viewerVote: null };
+    }
+    throw error;
+  }
+}
+
+export async function incrementPostEngagement(
+  slug: string,
+  action: EngagementAction,
+  voterIdentity?: string | null
+): Promise<PostEngagementResult> {
+  const postId = await resolveOrCreatePost(slug);
+  await ensurePostMetricsRow(postId);
+
+  if (action === "share") {
+    const rows = await db
+      .update(postMetrics)
+      .set({
+        shareCount: sql`${postMetrics.shareCount} + 1`,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(postMetrics.postId, postId))
+      .returning({
+        likeCount: postMetrics.likeCount,
+        dislikeCount: postMetrics.dislikeCount,
+        shareCount: postMetrics.shareCount,
+        commentCount: postMetrics.commentCount,
+      });
+
+    const voteHash = getVoteHash(voterIdentity);
+    if (!voteHash) {
+      return { engagement: toEngagementSnapshot(rows[0]), viewerVote: null };
+    }
+
+    try {
+      const [voteRow] = await db
+        .select({ action: postEngagementVotes.action })
+        .from(postEngagementVotes)
+        .where(and(eq(postEngagementVotes.postId, postId), eq(postEngagementVotes.voterHash, voteHash)))
+        .limit(1);
+
+      return {
+        engagement: toEngagementSnapshot(rows[0]),
+        viewerVote: voteRow?.action ?? null,
+      };
+    } catch (error) {
+      if (isMissingVoteTableError(error)) {
+        return { engagement: toEngagementSnapshot(rows[0]), viewerVote: null };
+      }
+      throw error;
+    }
+  }
+
+  const voteHash = getVoteHash(voterIdentity);
+  if (!voteHash) {
+    const rows = await db
+      .update(postMetrics)
+      .set(
+        action === "like"
+          ? {
+              likeCount: sql`${postMetrics.likeCount} + 1`,
+              updatedAt: sql`now()`,
+            }
+          : {
+              dislikeCount: sql`${postMetrics.dislikeCount} + 1`,
+              updatedAt: sql`now()`,
+            }
+      )
+      .where(eq(postMetrics.postId, postId))
+      .returning({
+        likeCount: postMetrics.likeCount,
+        dislikeCount: postMetrics.dislikeCount,
+        shareCount: postMetrics.shareCount,
+        commentCount: postMetrics.commentCount,
+      });
+
+    return { engagement: toEngagementSnapshot(rows[0]), viewerVote: null };
+  }
+
+  let result: PostEngagementResult;
+  try {
+    result = await db.transaction(async (tx) => {
+      const [existingVote] = await tx
+        .select({ action: postEngagementVotes.action })
+        .from(postEngagementVotes)
+        .where(and(eq(postEngagementVotes.postId, postId), eq(postEngagementVotes.voterHash, voteHash)))
+        .limit(1);
+
+    if (!existingVote) {
+      await tx
+        .insert(postEngagementVotes)
+        .values({
+          postId,
+          voterHash: voteHash,
+          action,
+        })
+        .onConflictDoNothing({
+          target: [postEngagementVotes.postId, postEngagementVotes.voterHash],
+        });
+
+      const [createdVote] = await tx
+        .select({ action: postEngagementVotes.action })
+        .from(postEngagementVotes)
+        .where(and(eq(postEngagementVotes.postId, postId), eq(postEngagementVotes.voterHash, voteHash)))
+        .limit(1);
+
+      const effectiveAction = createdVote?.action;
+      if (effectiveAction) {
+        await tx
+          .update(postMetrics)
+          .set(
+            effectiveAction === "like"
+              ? {
+                  likeCount: sql`${postMetrics.likeCount} + 1`,
+                  updatedAt: sql`now()`,
+                }
+              : {
+                  dislikeCount: sql`${postMetrics.dislikeCount} + 1`,
+                  updatedAt: sql`now()`,
+                }
+          )
+          .where(eq(postMetrics.postId, postId));
+      }
+
+      const [metrics] = await tx
+        .select({
+          likeCount: postMetrics.likeCount,
+          dislikeCount: postMetrics.dislikeCount,
+          shareCount: postMetrics.shareCount,
+          commentCount: postMetrics.commentCount,
+        })
+        .from(postMetrics)
+        .where(eq(postMetrics.postId, postId))
+        .limit(1);
+
+      return {
+        engagement: toEngagementSnapshot(metrics),
+        viewerVote: createdVote?.action ?? null,
+      } satisfies PostEngagementResult;
+    }
+
+    if (existingVote.action !== action) {
+      await tx
+        .update(postEngagementVotes)
+        .set({ action, updatedAt: sql`now()` })
+        .where(and(eq(postEngagementVotes.postId, postId), eq(postEngagementVotes.voterHash, voteHash)));
+
+      await tx
+        .update(postMetrics)
+        .set(
+          action === "like"
+            ? {
+                likeCount: sql`${postMetrics.likeCount} + 1`,
+                dislikeCount: sql`greatest(${postMetrics.dislikeCount} - 1, 0)`,
+                updatedAt: sql`now()`,
+              }
+            : {
+                dislikeCount: sql`${postMetrics.dislikeCount} + 1`,
+                likeCount: sql`greatest(${postMetrics.likeCount} - 1, 0)`,
+                updatedAt: sql`now()`,
+              }
+        )
+        .where(eq(postMetrics.postId, postId));
+    }
+
+    const [metrics] = await tx
+      .select({
+        likeCount: postMetrics.likeCount,
+        dislikeCount: postMetrics.dislikeCount,
+        shareCount: postMetrics.shareCount,
+        commentCount: postMetrics.commentCount,
+      })
+      .from(postMetrics)
+      .where(eq(postMetrics.postId, postId))
+      .limit(1);
+
+      return {
+        engagement: toEngagementSnapshot(metrics),
+        viewerVote: existingVote.action === action ? existingVote.action : action,
+      } satisfies PostEngagementResult;
+    });
+  } catch (error) {
+    if (!isMissingVoteTableError(error)) {
+      throw error;
+    }
+
+    const rows = await db
+      .update(postMetrics)
+      .set(
+        action === "like"
+          ? {
+              likeCount: sql`${postMetrics.likeCount} + 1`,
+              updatedAt: sql`now()`,
+            }
+          : {
+              dislikeCount: sql`${postMetrics.dislikeCount} + 1`,
+              updatedAt: sql`now()`,
+            }
+      )
+      .where(eq(postMetrics.postId, postId))
+      .returning({
+        likeCount: postMetrics.likeCount,
+        dislikeCount: postMetrics.dislikeCount,
+        shareCount: postMetrics.shareCount,
+        commentCount: postMetrics.commentCount,
+      });
+
+    result = { engagement: toEngagementSnapshot(rows[0]), viewerVote: null };
+  }
+
+  return result;
 }
 
 export async function listPostComments(slug: string, limit = 200): Promise<PostCommentItem[]> {
@@ -309,4 +549,3 @@ export async function voteCommentById(
     dislikeCount: Number(rows[0].dislikeCount),
   };
 }
-

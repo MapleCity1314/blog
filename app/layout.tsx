@@ -5,7 +5,6 @@ import {
   Noto_Serif_SC,
   Quicksand,
 } from "next/font/google";
-import { Suspense } from "react";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import BlogThemeProvider from "@/components/theme-provider";
@@ -61,9 +60,7 @@ export default function RootLayout({
         className={`${quicksand.variable} ${notoSerifSc.variable} ${logoFont.variable} ${geistMono.variable} antialiased`}
       >
         <BlogThemeProvider>
-          <Suspense fallback={<div className="min-h-screen w-full" />}>
-            {children}
-          </Suspense>
+          {children}
         </BlogThemeProvider>
       </body>
     </html>

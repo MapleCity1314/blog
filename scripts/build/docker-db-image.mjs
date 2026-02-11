@@ -5,7 +5,7 @@ import path from "node:path";
 const root = process.cwd();
 const outputDir = path.join(root, "output");
 const dockerDir = path.join(outputDir, "docker");
-const dockerfile = path.join(root, "scripts", "Dockerfile.postgres");
+const dockerfile = path.join(root, "scripts", "docker", "Dockerfile.postgres");
 
 const args = process.argv.slice(2);
 const tagIndex = args.indexOf("--tag");
@@ -13,7 +13,7 @@ const imageTag =
   tagIndex !== -1 && args[tagIndex + 1] ? args[tagIndex + 1] : "blog-db:local";
 
 if (!fs.existsSync(dockerfile)) {
-  console.error("Missing scripts/Dockerfile.postgres.");
+  console.error("Missing scripts/docker/Dockerfile.postgres.");
   process.exit(1);
 }
 

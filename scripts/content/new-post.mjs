@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
-const templatePath = path.join(root, "scripts", "templates", "post.mdx");
+const templatePath = path.join(root, "scripts", "content", "templates", "post.mdx");
 const postsDir = path.join(root, "content", "posts");
 
 const args = process.argv.slice(2);
@@ -18,7 +18,7 @@ const postDir = path.join(postsDir, slug);
 const filePath = path.join(postDir, "index.mdx");
 
 if (!fs.existsSync(templatePath)) {
-  console.error("Missing template at scripts/templates/post.mdx.");
+  console.error("Missing template at scripts/content/templates/post.mdx.");
   process.exit(1);
 }
 

@@ -6,7 +6,7 @@ const root = process.cwd();
 const outputDir = path.join(root, "output");
 const dockerDir = path.join(outputDir, "docker");
 const standaloneDir = path.join(outputDir, "standalone");
-const dockerfile = path.join(root, "scripts", "Dockerfile.standalone");
+const dockerfile = path.join(root, "scripts", "docker", "Dockerfile.standalone");
 
 const args = process.argv.slice(2);
 const tagIndex = args.indexOf("--tag");
@@ -15,7 +15,7 @@ const imageTag =
 
 fs.mkdirSync(dockerDir, { recursive: true });
 
-execSync("node scripts/build-standalone.mjs", { stdio: "inherit" });
+execSync("node scripts/build/standalone.mjs", { stdio: "inherit" });
 
 if (!fs.existsSync(standaloneDir)) {
   console.error("Missing output/standalone. Build failed.");
@@ -23,7 +23,7 @@ if (!fs.existsSync(standaloneDir)) {
 }
 
 if (!fs.existsSync(dockerfile)) {
-  console.error("Missing scripts/Dockerfile.standalone.");
+  console.error("Missing scripts/docker/Dockerfile.standalone.");
   process.exit(1);
 }
 

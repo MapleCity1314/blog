@@ -8,7 +8,7 @@
 - 前台页面：`/`、`/about`、`/posts`、`/friends`、`/resources`
 - 后台页面：`/admin/*`（文章、友链、资源、设置）
 - 友链申请流程：前台请求访问令牌 → 提交友链 → 后台审核入库
-- 搜索索引构建：`scripts/build-search-index.mjs`
+- 搜索索引构建：`scripts/build/search-index.mjs`
 
 ## 技术栈
 

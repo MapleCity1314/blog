@@ -22,6 +22,13 @@
       "when": 1770651994108,
       "tag": "0002_ordinary_boomerang",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770800000000,
+      "tag": "0003_breezy_vote_lock",
+      "breakpoints": true
     }
   ]
 }

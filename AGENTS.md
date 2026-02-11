@@ -8,7 +8,7 @@ These notes keep contributions consistent as we evolve the Next.js app and inter
 - API routes: `/api/about`, `/api/frames`, `/api/friends`, `/api/friends/access`, `/api/health`, `/api/metadata`, `/api/resources`, `/api/search`.
 - Content sources: MDX posts in `content/posts/*.mdx`; friends data in `content/*.json`.
 - Shared UI: route-level components in `components/` and data helpers in `lib/`.
-- Build pipeline: `scripts/build-search-index.mjs` runs before `next build`.
+- Build pipeline: `scripts/build/search-index.mjs` runs before `next build`.
 
 ## Project Structure & Module Organization
 The App Router lives under `app/`, with route groups such as `app/(app)` for the public blog and `app/(admin)` for internal tooling. `app/layout.tsx` defines the shared shell, while `app/globals.css` provides Tailwind v4 utility layers. Add view-specific assets beside their route, but place static media (logos, SVGs, Open Graph files) in `public/`. Keep configuration in the repo root (`next.config.ts`, `tsconfig.json`, `components.json`), and never commit artifacts from `.next/` or `node_modules/`. Use the `@/*` path alias for shared helpers instead of deep relative imports.
@@ -16,7 +16,7 @@ The App Router lives under `app/`, with route groups such as `app/(app)` for the
 ## Build, Test, and Development Commands
 - `bun install` — install dependencies tracked in `bun.lock`.
 - `bun run dev` — start the hot-reloading dev server on `http://localhost:3000`.
-- `bun run build` — build (runs `scripts/build-search-index.mjs` then `next build`).
+- `bun run build` — build (runs `scripts/build/search-index.mjs` then `next build`).
 - `bun run start` — serve the last build locally for smoke testing.
 - `bun run build:search-index` — generate the search index only.
 - `bun run new:post` — create a new MDX post scaffold.
