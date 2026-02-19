@@ -53,6 +53,26 @@ export async function canAccessConversationBySession(input: {
   return Boolean(rows[0]);
 }
 
+export async function getConversationAccessStateBySession(input: {
+  chatId: string;
+  sessionId: string;
+}): Promise<"new" | "owned" | "forbidden"> {
+  const rows = await db
+    .select({
+      sessionId: aiChatMessages.sessionId,
+    })
+    .from(aiChatMessages)
+    .where(eq(aiChatMessages.chatId, input.chatId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) {
+    return "new";
+  }
+
+  return row.sessionId === input.sessionId ? "owned" : "forbidden";
+}
+
 export async function getConversationMessages(chatId: string): Promise<UIMessage[]> {
   const rows = await db
     .select({

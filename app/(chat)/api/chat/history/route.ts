@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import {
-  canAccessConversationBySession,
+  getConversationAccessStateBySession,
   getConversationMessages,
 } from "@/lib/ai/chat/history";
 import { verifyConversationShareToken } from "@/lib/ai/chat/share";
@@ -42,11 +42,11 @@ export async function GET(request: Request) {
       );
     }
 
-    const canAccess = await canAccessConversationBySession({
+    const accessState = await getConversationAccessStateBySession({
       chatId,
       sessionId: session.sessionId,
     });
-    if (!canAccess) {
+    if (accessState === "forbidden") {
       return NextResponse.json(
         {
           code: "UNAUTHORIZED",
@@ -64,4 +64,3 @@ export async function GET(request: Request) {
     messages,
   });
 }
-

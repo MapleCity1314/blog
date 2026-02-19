@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import {
-  canAccessConversationBySession,
+  getConversationAccessStateBySession,
   getConversationMessages,
 } from "@/lib/ai/chat/history";
 import { verifyConversationShareToken } from "@/lib/ai/chat/share";
@@ -37,11 +37,11 @@ export default async function ConversationPage({
       redirect("/chat");
     }
 
-    const canAccess = await canAccessConversationBySession({
+    const accessState = await getConversationAccessStateBySession({
       chatId,
       sessionId: session.sessionId,
     });
-    if (!canAccess) {
+    if (accessState === "forbidden") {
       redirect("/chat");
     }
   }
@@ -56,4 +56,3 @@ export default async function ConversationPage({
     />
   );
 }
-
