@@ -10,14 +10,13 @@ import { getInviteSessionCookieName } from "@/lib/ai/invite-session";
  */
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get(getInviteSessionCookieName())?.value ?? null;
-    const auth = await authorizeChatRequest(request, sessionToken);
     const payload = await readChatPayload(request);
     const prepared = prepareChatRequest(payload);
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get(getInviteSessionCookieName())?.value ?? null;
+    const auth = await authorizeChatRequest(request, sessionToken, prepared.modelAlias);
     return await streamChatResponse({ request: prepared, auth });
   } catch (error) {
     return toChatErrorResponse(error);
   }
 }
-

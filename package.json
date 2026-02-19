@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.30",
     "@ai-sdk/react": "^3.0.93",
     "@mdxeditor/editor": "^3.52.3",
     "@monaco-editor/react": "^4.7.0",
