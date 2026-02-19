@@ -10,6 +10,7 @@ import {
   Library,
   Users,
   Settings,
+  KeyRound,
   ExternalLink,
   Menu,
   X,
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { name: "Comments", href: "/admin/comments", icon: MessageSquare },
   { name: "Resources", href: "/admin/resources", icon: Library },
   { name: "Friends", href: "/admin/friends", icon: Users },
+  { name: "AI", href: "/admin/ai", icon: KeyRound },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ];
 const NAV_ITEM_HEIGHT = 40;

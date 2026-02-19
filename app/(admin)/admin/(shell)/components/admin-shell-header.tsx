@@ -6,6 +6,7 @@ const navItems = [
   { href: "/admin/comments", label: "Comments" },
   { href: "/admin/resources", label: "Resources" },
   { href: "/admin/friends", label: "Friends" },
+  { href: "/admin/ai", label: "AI" },
   { href: "/admin/settings", label: "Settings" },
 ];
 
