@@ -27,7 +27,10 @@ export async function listSessionConversations(
 
   return rows.map((row) => ({
     chatId: row.chatId,
-    lastMessageAt: row.lastMessageAt.toISOString(),
+    lastMessageAt:
+      row.lastMessageAt instanceof Date
+        ? row.lastMessageAt.toISOString()
+        : new Date(row.lastMessageAt).toISOString(),
     messageCount: Number(row.messageCount),
   }));
 }
@@ -63,4 +66,3 @@ export async function getConversationMessages(chatId: string): Promise<UIMessage
     .map((row) => row.uiMessage as UIMessage | null)
     .filter((item): item is UIMessage => item !== null);
 }
-

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type ConversationSummary = {
   chatId: string;
@@ -19,8 +19,17 @@ export default function ChatShell({ children }: { children: React.ReactNode }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const isSharedReadonly = Boolean(searchParams.get("share"));
 
   useEffect(() => {
+    if (isSharedReadonly) {
+      setConversations([]);
+      setLoading(false);
+      return;
+    }
+
     let disposed = false;
     async function loadConversations() {
       setLoading(true);
@@ -49,9 +58,11 @@ export default function ChatShell({ children }: { children: React.ReactNode }) {
     return () => {
       disposed = true;
     };
-  }, [pathname]);
+  }, [isSharedReadonly, pathname]);
 
-  const createHref = useMemo(() => `/c/${crypto.randomUUID()}`, [pathname]);
+  function openNewConversation() {
+    router.push(`/c/${crypto.randomUUID()}`);
+  }
 
   return (
     <section className="grid h-full w-full grid-cols-1 md:grid-cols-[18rem_1fr]">
@@ -59,12 +70,13 @@ export default function ChatShell({ children }: { children: React.ReactNode }) {
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h2 className="text-sm font-medium">Chats</h2>
-            <Link
-              href={createHref}
+            <button
+              type="button"
+              onClick={openNewConversation}
               className="inline-flex min-h-11 items-center rounded-md border border-border px-3 text-xs hover:bg-accent"
             >
               New
-            </Link>
+            </button>
           </div>
           <nav aria-label="Conversation list" className="min-h-0 flex-1 overflow-y-auto p-2">
             {loading ? (
@@ -104,4 +116,3 @@ export default function ChatShell({ children }: { children: React.ReactNode }) {
     </section>
   );
 }
-
