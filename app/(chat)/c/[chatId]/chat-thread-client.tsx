@@ -305,14 +305,75 @@ export default function ChatThreadClient({
                   );
                 }
 
+                const parts = Array.isArray(message.parts) ? message.parts : [];
+                const textParts = parts.filter(isTextPart);
+                const toolParts = parts.filter(isToolPart);
+                const hasToolTrace = toolParts.length > 0;
+                const isTraceExpanded = Boolean(expandedToolMessages[message.id]);
+
                 return (
-                  <li key={message.id} className="w-full">
-                    <div className="w-full text-sm leading-7 text-foreground">
-                      <MessageResponse className="w-full max-w-none">
-                        {sanitizeAssistantMarkdown(content || "Unsupported message content.")}
-                      </MessageResponse>
+                  <li key={message.id} className="group w-full">
+                    <div className="w-full space-y-4 text-sm leading-7 text-foreground">
+                      {textParts.length > 0 ? (
+                        textParts.map((part, index) => (
+                          <MessageResponse className="w-full max-w-none" key={`${message.id}-text-${index}`}>
+                            {sanitizeAssistantMarkdown(part.text || "Unsupported message content.")}
+                          </MessageResponse>
+                        ))
+                      ) : (
+                        <p className="text-muted-foreground">[No text output]</p>
+                      )}
+
+                      {hasToolTrace ? (
+                        <>
+                          <div className="space-y-1 text-xs text-muted-foreground">
+                            <p className="font-medium text-foreground">{getToolActionName(toolParts[0])}</p>
+                            {toolParts.map((part, index) => (
+                              <p key={`${message.id}-tool-track-${index}`}>{getToolTrackingLabel(part)}</p>
+                            ))}
+                          </div>
+
+                          {isTraceExpanded ? (
+                            <div className="space-y-3">
+                              {toolParts.map((part, index) => (
+                                <Tool className="bg-background/70" defaultOpen key={`${message.id}-tool-${index}`}>
+                                  {part.type === "dynamic-tool" ? (
+                                    <ToolHeader
+                                      title={getToolActionName(part)}
+                                      type={part.type}
+                                      state={part.state}
+                                      toolName={part.toolName}
+                                    />
+                                  ) : (
+                                    <ToolHeader title={getToolActionName(part)} type={part.type} state={part.state} />
+                                  )}
+                                  <ToolContent>
+                                    <ToolInput input={part.input} />
+                                    <ToolOutput errorText={part.errorText} output={part.output} />
+                                  </ToolContent>
+                                </Tool>
+                              ))}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : null}
                     </div>
-                    <div className="mt-1.5 flex justify-start">
+
+                    <div className="mt-1.5 flex items-center justify-between">
+                      {hasToolTrace ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleToolTrace(message.id)}
+                          className="h-8 gap-1 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                        >
+                          <ChevronsDownUpIcon className="size-3.5" />
+                          {isTraceExpanded ? "折叠操作" : "展开操作"}
+                        </Button>
+                      ) : (
+                        <span />
+                      )}
                       <Button
                         type="button"
                         variant="ghost"
