@@ -1,4 +1,5 @@
-import { createAiInviteCode, updateAiInviteQuota, updateAiInviteStatus } from "./actions";
+import CreateInviteCodeForm from "./components/create-invite-code-form";
+import { updateAiInviteQuota, updateAiInviteStatus } from "./actions";
 import { getAdminAiDashboardData } from "@/lib/admin/ai";
 
 function formatDate(value: string | null) {
@@ -38,54 +39,7 @@ export default async function AdminAiPage() {
         <h3 className="mb-4 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground/60">
           Create_Invite_Code
         </h3>
-        <form action={createAiInviteCode} className="grid gap-4 md:grid-cols-2">
-          <input type="hidden" name="redirect_to" value="/admin/ai" />
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase text-muted-foreground">Label</label>
-            <input
-              name="label"
-              placeholder="e.g. internal test"
-              className="w-full border border-border/60 bg-background/60 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase text-muted-foreground">
-              Invite_Code (optional)
-            </label>
-            <input
-              name="invite_code"
-              placeholder="leave empty to auto-generate"
-              className="w-full border border-border/60 bg-background/60 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase text-muted-foreground">
-              Token_Quota
-            </label>
-            <input
-              name="token_quota"
-              type="number"
-              min={0}
-              step={1}
-              defaultValue={500000}
-              required
-              className="w-full border border-border/60 bg-background/60 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-mono uppercase text-muted-foreground">Notes</label>
-            <input
-              name="notes"
-              placeholder="team / use case / expiry policy"
-              className="w-full border border-border/60 bg-background/60 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
-            />
-          </div>
-          <div className="md:col-span-2 flex justify-end">
-            <button className="inline-flex min-h-11 items-center rounded-md bg-foreground px-4 py-2 text-[11px] font-mono uppercase tracking-widest text-background transition hover:opacity-90">
-              Create
-            </button>
-          </div>
-        </form>
+        <CreateInviteCodeForm />
       </section>
 
       <section className="space-y-4">
@@ -169,4 +123,3 @@ export default async function AdminAiPage() {
     </div>
   );
 }
-

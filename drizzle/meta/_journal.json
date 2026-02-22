@@ -29,6 +29,13 @@
       "when": 1770800000000,
       "tag": "0003_breezy_vote_lock",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771414395971,
+      "tag": "0004_massive_sharon_carter",
+      "breakpoints": true
     }
   ]
 }

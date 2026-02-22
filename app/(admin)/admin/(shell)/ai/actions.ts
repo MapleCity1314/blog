@@ -33,41 +33,28 @@ function createInviteCode() {
   return `u0-invite-${crypto.randomBytes(6).toString("hex")}`;
 }
 
-export async function createAiInviteCode(formData: FormData) {
-  const redirectTo = getRedirectTo(formData);
+export type CreateAiInviteCodeState = {
+  error?: string;
+  createdCode?: string;
+};
+
+export async function createAiInviteCode(
+  prevState: CreateAiInviteCodeState,
+  formData: FormData
+): Promise<CreateAiInviteCodeState> {
+  void prevState;
   const inviteCode = normalizeText(formData.get("invite_code")) || createInviteCode();
   const label = normalizeText(formData.get("label")) || null;
   const notes = normalizeText(formData.get("notes")) || null;
   const tokenQuota = parseTokenQuota(formData.get("token_quota"));
 
   if (tokenQuota === null) {
-    redirect(
-      buildAdminToastUrl({
-        path: redirectTo,
-        type: "error",
-        message: "Create failed",
-        description: "Token quota must be a valid number.",
-      })
-    );
+    return { error: "Token quota must be a valid number." };
   }
 
   if (inviteCode.length < 8) {
-    redirect(
-      buildAdminToastUrl({
-        path: redirectTo,
-        type: "error",
-        message: "Create failed",
-        description: "Invite code must be at least 8 characters.",
-      })
-    );
+    return { error: "Invite code must be at least 8 characters." };
   }
-
-  let toast: AdminToastPayload = {
-    path: redirectTo,
-    type: "success",
-    message: "Invite created",
-    description: `Code: ${inviteCode}`,
-  };
 
   try {
     await db.insert(aiInviteCodes).values({
@@ -80,19 +67,15 @@ export async function createAiInviteCode(formData: FormData) {
     });
 
     revalidatePath("/admin/ai");
+    return { createdCode: inviteCode };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error.";
-    toast = {
-      path: redirectTo,
-      type: "error",
-      message: "Create failed",
-      description: message.includes("ai_invite_codes_code_hash_unique")
+    return {
+      error: message.includes("ai_invite_codes_code_hash_unique")
         ? "Duplicate invite code."
         : message,
     };
   }
-
-  redirect(buildAdminToastUrl(toast));
 }
 
 export async function updateAiInviteStatus(formData: FormData) {
@@ -184,4 +167,3 @@ export async function updateAiInviteQuota(formData: FormData) {
 
   redirect(buildAdminToastUrl(toast));
 }
-

@@ -23,6 +23,18 @@ function normalizeText(value: FormDataEntryValue | null) {
   return String(value ?? "").trim();
 }
 
+function readFormField(
+  formData: FormData,
+  preferredName: string,
+  fallbackName: string
+) {
+  const preferred = formData.get(preferredName);
+  if (preferred !== null) {
+    return normalizeText(preferred);
+  }
+  return normalizeText(formData.get(fallbackName));
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -42,16 +54,22 @@ function parsePublished(formData: FormData) {
   const intent = normalizeText(formData.get("intent"));
   if (intent === "publish") return true;
   if (intent === "draft") return false;
-  return formData.get("published") === "on";
+
+  const explicit = normalizeText(formData.get("published")).toLowerCase();
+  if (explicit === "on" || explicit === "true" || explicit === "1") return true;
+  if (explicit === "off" || explicit === "false" || explicit === "0") return false;
+
+  const current = normalizeText(formData.get("current_published")).toLowerCase();
+  return current === "true" || current === "1" || current === "on";
 }
 
 function buildMetadata(formData: FormData): AdminPostMetadata {
-  const title = normalizeText(formData.get("title"));
+  const title = readFormField(formData, "studio_title", "title");
   const date =
-    normalizeText(formData.get("date")) || new Date().toISOString().split("T")[0];
-  const description = normalizeText(formData.get("description"));
-  const tags = parseTags(normalizeText(formData.get("tags")));
-  const cover = normalizeText(formData.get("cover"));
+    readFormField(formData, "studio_date", "date") || new Date().toISOString().split("T")[0];
+  const description = readFormField(formData, "studio_description", "description");
+  const tags = parseTags(readFormField(formData, "studio_tags", "tags"));
+  const cover = readFormField(formData, "studio_cover", "cover");
 
   return {
     title,
@@ -113,7 +131,7 @@ export async function updatePost(
   formData: FormData
 ): Promise<PostActionState> {
   const originalSlug = normalizeText(formData.get("original_slug"));
-  const slugRaw = normalizeText(formData.get("slug"));
+  const slugRaw = readFormField(formData, "studio_slug", "slug");
   const slug = slugify(slugRaw || originalSlug);
   const content = String(formData.get("content") ?? "");
 

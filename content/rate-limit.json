@@ -1,16 +1,12 @@
 {
   "records": [
     {
-      "key": "friends-access-post:::1",
-      "timestamp": 1770728471882
+      "key": "chat-stream-post:::1",
+      "timestamp": 1771760852266
     },
     {
-      "key": "friends-access-get:::1",
-      "timestamp": 1770728486960
-    },
-    {
-      "key": "friends-post:::1",
-      "timestamp": 1770729380567
+      "key": "chat-stream-post:::1",
+      "timestamp": 1771760902863
     }
   ]
 }

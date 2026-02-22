@@ -39,6 +39,15 @@ export const engagementVoteAction = pgEnum("engagement_vote_action", [
   "like",
   "dislike",
 ]);
+export const aiInviteCodeStatus = pgEnum("ai_invite_code_status", [
+  "active",
+  "disabled",
+]);
+export const aiUsageEntryType = pgEnum("ai_usage_entry_type", [
+  "model_tokens",
+  "tool_usage",
+  "admin_adjustment",
+]);
 
 export const users = pgTable(
   "users",
@@ -284,3 +293,149 @@ export const about = pgTable("about", {
     .defaultNow(),
   updatedBy: uuid("updated_by").references(() => users.id),
 });
+
+export const aiInviteCodes = pgTable(
+  "ai_invite_codes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    codeHash: text("code_hash").notNull(),
+    label: text("label"),
+    status: aiInviteCodeStatus("status").notNull().default("active"),
+    tokenQuota: integer("token_quota").notNull().default(0),
+    tokensConsumed: integer("tokens_consumed").notNull().default(0),
+    notes: text("notes"),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    disabledAt: timestamp("disabled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: uuid("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => ({
+    codeHashUnique: uniqueIndex("ai_invite_codes_code_hash_unique").on(
+      table.codeHash
+    ),
+    statusUpdatedIndex: index("ai_invite_codes_status_updated_idx").on(
+      table.status,
+      table.updatedAt
+    ),
+  })
+);
+
+export const aiChatSessions = pgTable(
+  "ai_chat_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    inviteCodeId: uuid("invite_code_id")
+      .notNull()
+      .references(() => aiInviteCodes.id, { onDelete: "restrict" }),
+    sessionTokenHash: text("session_token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    sessionTokenHashUnique: uniqueIndex(
+      "ai_chat_sessions_session_token_hash_unique"
+    ).on(table.sessionTokenHash),
+    inviteCodeExpiresIndex: index("ai_chat_sessions_invite_expires_idx").on(
+      table.inviteCodeId,
+      table.expiresAt
+    ),
+  })
+);
+
+export const aiChatMessages = pgTable(
+  "ai_chat_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    chatId: uuid("chat_id").notNull(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => aiChatSessions.id, { onDelete: "cascade" }),
+    inviteCodeId: uuid("invite_code_id")
+      .notNull()
+      .references(() => aiInviteCodes.id, { onDelete: "restrict" }),
+    role: text("role").notNull(),
+    modelAlias: text("model_alias"),
+    providerModel: text("provider_model"),
+    uiMessage: jsonb("ui_message").notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    totalTokens: integer("total_tokens").notNull().default(0),
+    toolUnits: integer("tool_units").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    chatCreatedIndex: index("ai_chat_messages_chat_created_idx").on(
+      table.chatId,
+      table.createdAt
+    ),
+    sessionCreatedIndex: index("ai_chat_messages_session_created_idx").on(
+      table.sessionId,
+      table.createdAt
+    ),
+    inviteCreatedIndex: index("ai_chat_messages_invite_created_idx").on(
+      table.inviteCodeId,
+      table.createdAt
+    ),
+  })
+);
+
+export const aiUsageLedger = pgTable(
+  "ai_usage_ledger",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    inviteCodeId: uuid("invite_code_id")
+      .notNull()
+      .references(() => aiInviteCodes.id, { onDelete: "restrict" }),
+    sessionId: uuid("session_id").references(() => aiChatSessions.id, {
+      onDelete: "set null",
+    }),
+    chatId: uuid("chat_id"),
+    messageId: uuid("message_id").references(() => aiChatMessages.id, {
+      onDelete: "set null",
+    }),
+    entryType: aiUsageEntryType("entry_type").notNull(),
+    tokenDelta: integer("token_delta").notNull(),
+    toolUnits: integer("tool_units").notNull().default(0),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    totalTokens: integer("total_tokens").notNull().default(0),
+    modelAlias: text("model_alias"),
+    providerModel: text("provider_model"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    inviteCreatedIndex: index("ai_usage_ledger_invite_created_idx").on(
+      table.inviteCodeId,
+      table.createdAt
+    ),
+    sessionCreatedIndex: index("ai_usage_ledger_session_created_idx").on(
+      table.sessionId,
+      table.createdAt
+    ),
+    messageIndex: index("ai_usage_ledger_message_idx").on(table.messageId),
+  })
+);

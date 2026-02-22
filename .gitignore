@@ -3,6 +3,7 @@
 .cursor/*
 skills/*
 output/*
+.playwright-cli/*
 # dependencies
 /node_modules
 /.pnp
@@ -54,3 +55,6 @@ bun.lock
 nginx/*
 docs
 docs/*
+
+Microsoft/*
+

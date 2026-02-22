@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   cacheComponents: true,
   output: "standalone",
+  transpilePackages: ["next-mdx-remote"],
   pageExtensions: ["ts", "tsx", "js", "jsx", "md", "mdx"],
   images: {
     remotePatterns: [

@@ -136,7 +136,9 @@ function formatBytes(bytes: number) {
 }
 
 function normalizeEditorMarkdown(markdown: string) {
-  const normalizedClassName = markdown.replace(/\bclassname=/g, "className=");
+  const normalizedClassName = markdown
+    .replace(/\bclassname=/g, "className=")
+    .replace(/\bclass=/g, "className=");
   return normalizedClassName.replace(
     /^(\s*)(```|~~~)([^\n`]*)$/gm,
     (_line, indent: string, fence: string, languageRaw: string) => {
@@ -202,8 +204,10 @@ export default function PostStudio({ post }: PostStudioProps) {
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const filePickerRef = useRef<HTMLInputElement>(null);
+  const contentInputRef = useRef<HTMLInputElement>(null);
   const commandInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<MonacoEditorNS.IStandaloneCodeEditor | null>(null);
+  const editorDomCleanupRef = useRef<(() => void) | null>(null);
   const mdxComponents = useMDXComponents({});
   const hydratedOnceRef = useRef(false);
   const autosaveCheckedSlugRef = useRef<string | null>(null);
@@ -213,6 +217,8 @@ export default function PostStudio({ post }: PostStudioProps) {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      editorDomCleanupRef.current?.();
+      editorDomCleanupRef.current = null;
     };
   }, []);
 
@@ -255,6 +261,41 @@ export default function PostStudio({ post }: PostStudioProps) {
 
   const handleEditorDidMount = (editor: MonacoEditorNS.IStandaloneCodeEditor) => {
     editorRef.current = editor;
+    editorDomCleanupRef.current?.();
+
+    const domNode = editor.getDomNode();
+    if (!domNode) return;
+
+    const handlePaste = (event: ClipboardEvent) => {
+      const items = Array.from(event.clipboardData?.items ?? []);
+      const imageFiles = items
+        .filter((item) => item.type.startsWith("image/"))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => Boolean(file));
+      if (imageFiles.length === 0) return;
+      event.preventDefault();
+      void uploadFiles(imageFiles);
+    };
+
+    const handleDrop = (event: DragEvent) => {
+      if (!event.dataTransfer?.files?.length) return;
+      event.preventDefault();
+      void uploadFiles(event.dataTransfer.files);
+    };
+
+    const handleDragOver = (event: DragEvent) => {
+      event.preventDefault();
+    };
+
+    domNode.addEventListener("paste", handlePaste, true);
+    domNode.addEventListener("drop", handleDrop, true);
+    domNode.addEventListener("dragover", handleDragOver, true);
+
+    editorDomCleanupRef.current = () => {
+      domNode.removeEventListener("paste", handlePaste, true);
+      domNode.removeEventListener("drop", handleDrop, true);
+      domNode.removeEventListener("dragover", handleDragOver, true);
+    };
   };
 
   function insertEditorSnippet(snippet: string) {
@@ -524,7 +565,19 @@ export default function PostStudio({ post }: PostStudioProps) {
   }
 
   return (
-    <form action={formAction} className="flex min-h-[calc(100vh-10rem)] flex-col">
+    <form
+      action={formAction}
+      className="flex min-h-[calc(100vh-10rem)] flex-col"
+      onSubmitCapture={() => {
+        const latest = normalizeEditorMarkdown(editorRef.current?.getValue() ?? content);
+        if (contentInputRef.current) {
+          contentInputRef.current.value = latest;
+        }
+        if (latest !== content) {
+          setContent(latest);
+        }
+      }}
+    >
       <input type="hidden" name="original_slug" value={post.slug} />
       <input type="hidden" name="title" value={title} />
       <input type="hidden" name="slug" value={slug} />
@@ -532,7 +585,12 @@ export default function PostStudio({ post }: PostStudioProps) {
       <input type="hidden" name="description" value={description} />
       <input type="hidden" name="tags" value={tags} />
       <input type="hidden" name="cover" value={cover} />
-      <input type="hidden" name="content" value={content} />
+      <input
+        type="hidden"
+        name="current_published"
+        value={post.metadata.published ? "true" : "false"}
+      />
+      <input ref={contentInputRef} type="hidden" name="content" value={content} />
 
       <div className="sticky top-0 z-20 mb-4 border border-border/70 bg-background/85 p-4 backdrop-blur-md">
         <div className="flex flex-wrap items-center justify-between gap-3">

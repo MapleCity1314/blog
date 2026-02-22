@@ -8,6 +8,7 @@ import {
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import BlogThemeProvider from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 
 const quicksand = Quicksand({
@@ -30,6 +31,7 @@ const notoSerifSc = Noto_Serif_SC({
   variable: "--font-noto-serif-sc",
   weight: "300",
   display: "swap",
+  preload: false,
 });
 
 const logoFont = Liu_Jian_Mao_Cao({
@@ -37,11 +39,13 @@ const logoFont = Liu_Jian_Mao_Cao({
   subsets: ["latin"],
   weight: "400",
   display: "swap",
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -59,9 +63,11 @@ export default function RootLayout({
       <body
         className={`${quicksand.variable} ${notoSerifSc.variable} ${logoFont.variable} ${geistMono.variable} antialiased`}
       >
-        <BlogThemeProvider>
-          {children}
-        </BlogThemeProvider>
+        <TooltipProvider>
+          <BlogThemeProvider>
+            {children}
+          </BlogThemeProvider>
+        </TooltipProvider>
       </body>
     </html>
   );

@@ -60,7 +60,11 @@ const SUPPORTED_CODE_LANGUAGES = new Set([
 ]);
 
 function normalizeMarkdownCodeFences(markdown: string) {
-  return markdown.replace(
+  const normalizedClassName = markdown
+    .replace(/\bclassname=/g, "className=")
+    .replace(/\bclass=/g, "className=");
+
+  return normalizedClassName.replace(
     /^(\s*)(```|~~~)([^\n`]*)$/gm,
     (_line, indent: string, fence: string, languageRaw: string) => {
       const language = String(languageRaw ?? "").trim();
@@ -302,6 +306,15 @@ export async function renameAdminPost(oldSlug: string, newSlug: string) {
   if (fs.existsSync(oldPublicDirectory)) {
     await fs.promises.mkdir(publicPostsDirectory, { recursive: true });
     await fs.promises.rename(oldPublicDirectory, newPublicDirectory);
+  }
+
+  const newIndexPath = getPostIndexPath(newSlug);
+  if (fs.existsSync(newIndexPath)) {
+    const source = await fs.promises.readFile(newIndexPath, "utf8");
+    const rewritten = source.replaceAll(`/posts/${oldSlug}/`, `/posts/${newSlug}/`);
+    if (rewritten !== source) {
+      await fs.promises.writeFile(newIndexPath, rewritten, "utf8");
+    }
   }
 
   return true;

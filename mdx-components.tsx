@@ -94,9 +94,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       // eslint-disable-next-line @next/next/no-img-element
       <img 
         className={cn(
-          "my-20 h-auto w-full max-w-none rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm",
-          "md:w-[112%] md:max-w-[112%] md:-ml-[6%]",
-          "lg:w-[124%] lg:max-w-[124%] lg:-ml-[12%]",
+          "my-20 block h-auto w-full rounded-lg border border-zinc-200 dark:border-zinc-800 shadow-sm",
+          "mx-auto md:w-[112%] lg:w-[124%]",
           className
         )}
         alt={alt} 
